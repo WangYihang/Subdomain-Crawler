@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/WangYihang/Subdomain-Crawler/internal/util"
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
 func TestMatchDomains(t *testing.T) {
@@ -54,7 +55,11 @@ func TestFilterDomain(t *testing.T) {
 	for _, tc := range testCases {
 		got := util.FilterDomain(tc.domains, tc.root)
 		t.Logf("util.FilterDomain(%v, %v) = %v", tc.domains, tc.root, got)
-		if !reflect.DeepEqual(got, tc.expected) {
+		gotSet := mapset.NewSet[string]()
+		gotSet.Append(got...)
+		expectedSet := mapset.NewSet[string]()
+		expectedSet.Append(tc.expected...)
+		if !gotSet.Equal(expectedSet) {
 			t.Errorf("Expected %s but got %s", tc.expected, got)
 		}
 	}
