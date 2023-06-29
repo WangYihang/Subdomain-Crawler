@@ -22,3 +22,6 @@ go.work
 
 # Release files
 dist/
+
+# Output folder
+output/

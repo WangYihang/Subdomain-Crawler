@@ -52,7 +52,9 @@ func loader(filepath string) {
 }
 
 func main() {
-	go util.PrometheusExporter()
+	if model.Opts.Debug {
+		go util.PrometheusExporter()
+	}
 
 	loader(model.Opts.InputFile)
 

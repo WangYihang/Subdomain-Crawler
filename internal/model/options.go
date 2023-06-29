@@ -9,7 +9,8 @@ type IOOptions struct {
 
 type Options struct {
 	IOOptions
-	Timeout    int  `short:"t" long:"timeout" description:"Timeout in seconds" default:"8"`
-	NumWorkers int  `short:"n" long:"num-workers" description:"Number of workers" default:"16"`
+	Timeout    int  `short:"t" long:"timeout" description:"Timeout of each HTTP request (in seconds)" default:"4"`
+	NumWorkers int  `short:"n" long:"num-workers" description:"Number of workers" default:"64"`
 	Version    bool `short:"v" long:"version" description:"Version"`
+	Debug      bool `short:"d" long:"debug" description:"Enable debug mode"`
 }
