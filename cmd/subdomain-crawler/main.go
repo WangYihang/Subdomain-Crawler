@@ -3,9 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 
+	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/WangYihang/Subdomain-Crawler/internal/common"
@@ -55,10 +57,10 @@ func loader(filepath string) {
 func main() {
 	if model.Opts.Debug {
 		go util.PrometheusExporter()
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
 	}
-
-	loader(model.Opts.InputFile)
-
 	for i := 0; i < model.Opts.NumWorkers; i++ {
 		go func() {
 			for domain := range queue {
@@ -70,7 +72,7 @@ func main() {
 			wg.Done()
 		}()
 	}
-
+	loader(model.Opts.InputFile)
 	wg.Wait()
 	p.Wait()
 }
