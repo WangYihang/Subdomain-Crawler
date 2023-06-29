@@ -2,32 +2,21 @@ package util
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/WangYihang/Subdomain-Crawler/internal/common"
 	"github.com/WangYihang/Subdomain-Crawler/internal/model"
-	"github.com/go-resty/resty/v2"
 	"github.com/jpillora/go-tld"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
 )
 
-var client *resty.Client
-
-func init() {
-	client = resty.New()
-	client.SetTimeout(time.Duration(model.Opts.Timeout) * time.Second)
-	client.SetRedirectPolicy(resty.FlexibleRedirectPolicy(8))
-	log.SetOutput(io.Discard)
-}
-
 func Crawl(domain string) ([]string, error) {
 	// Create HTTP Request
 	uri := fmt.Sprintf("https://%s/", domain)
-	resp, err := client.R().SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0").Get(uri)
+	resp, err := common.RestyClient.R().SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0").Get(uri)
 	if err != nil {
 		return []string{}, err
 	}

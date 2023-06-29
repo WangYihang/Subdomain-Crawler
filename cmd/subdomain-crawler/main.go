@@ -3,9 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"net/http"
 	_ "net/http/pprof"
@@ -13,6 +15,8 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/internal/common"
 	"github.com/WangYihang/Subdomain-Crawler/internal/model"
 	"github.com/WangYihang/Subdomain-Crawler/internal/util"
+	"github.com/go-resty/resty/v2"
+	"github.com/jessevdk/go-flags"
 	"github.com/vbauerster/mpb/v8"
 )
 
@@ -23,6 +27,16 @@ var (
 )
 
 func init() {
+	_, err := flags.Parse(&model.Opts)
+	if err != nil {
+		panic(err)
+	}
+
+	common.RestyClient = resty.New()
+	common.RestyClient.SetTimeout(time.Duration(model.Opts.Timeout) * time.Second)
+	common.RestyClient.SetRedirectPolicy(resty.FlexibleRedirectPolicy(8))
+	log.SetOutput(io.Discard)
+
 	if model.Opts.Version {
 		fmt.Println(common.PV.String())
 		os.Exit(0)
@@ -34,7 +48,7 @@ func init() {
 }
 
 func loader(filepath string) {
-	readFile, err := os.Open(model.Opts.InputFile)
+	readFile, err := os.Open(filepath)
 	if err != nil {
 		panic(err)
 	}

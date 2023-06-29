@@ -1,17 +1,6 @@
 package model
 
-import (
-	"github.com/jessevdk/go-flags"
-)
-
 var Opts Options
-
-func init() {
-	_, err := flags.Parse(&Opts)
-	if err != nil {
-		panic(err)
-	}
-}
 
 type IOOptions struct {
 	InputFile    string `short:"i" long:"input-file" description:"The input file" required:"true" default:"input.txt"`
