@@ -13,7 +13,6 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/internal/common"
 	"github.com/WangYihang/Subdomain-Crawler/internal/model"
 	"github.com/WangYihang/Subdomain-Crawler/internal/util"
-	"github.com/jessevdk/go-flags"
 	"github.com/vbauerster/mpb/v8"
 )
 
@@ -24,12 +23,6 @@ var (
 )
 
 func init() {
-	_, err := flags.Parse(&model.Opts)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
 	if model.Opts.Version {
 		fmt.Println(common.PV.String())
 		os.Exit(0)
