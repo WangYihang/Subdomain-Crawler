@@ -60,7 +60,7 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 	bar.SetCurrent(int64(numDone))
 	bar.SetTotal(int64(numAll), false)
 
-	numWorkers := 8
+	numWorkers := 32
 	for i := 0; i < numWorkers; i++ {
 		go func() {
 			for {
