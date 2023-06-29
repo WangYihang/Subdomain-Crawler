@@ -1,0 +1,37 @@
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+stages:
+- test
+- release
+test:
+  stage: test
+  image:
+    name: golang:1.20
+    pull_policy: if-not-present
+  script:
+  - go env -w GO111MODULE=on
+  - go env -w GOPROXY=https://goproxy.cn,direct
+  - go test ./...
+release:
+  stage: release
+  image:
+    name: goreleaser/goreleaser
+    entrypoint:
+    - ''
+    pull_policy: if-not-present
+  only:
+  - tags
+  variables:
+    GIT_DEPTH: 0
+  tags:
+    - build
+  script:
+  - apk add upx
+  - go env -w GO111MODULE=on
+  - go env -w GOPROXY=https://goproxy.cn,direct
+  - GITLAB_TOKEN=${CI_JOB_TOKEN} goreleaser release --clean

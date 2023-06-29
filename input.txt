@@ -1,0 +1,5 @@
+tsinghua.edu.cn
+pku.edu.cn
+fudan.edu.cn
+sjtu.edu.cn
+zju.edu.cn
