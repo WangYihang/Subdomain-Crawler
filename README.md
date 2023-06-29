@@ -2,6 +2,8 @@
 
 The program aims to help you collect subdomains of a list of given second-level domains (SLD).
 
+![](./assets/demo.gif)
+
 ## Usage
 
 1. Edit input file `input.txt`
