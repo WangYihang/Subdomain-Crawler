@@ -87,7 +87,8 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 				bar.EwmaSetCurrent(int64(numDone), time.Since(start))
 				bar.SetTotal(int64(numAll), false)
 
-				fmt.Printf("%d, %d %v\r", numDone, numAll, task)
+				stateString := fmt.Sprintf("%s [%d / %d]", task.String(), numDone, numAll)
+				fmt.Printf("%s%s\r", strings.Repeat(" ", common.TerminalWidth-len(stateString)), stateString)
 			}
 		}()
 	}

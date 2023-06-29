@@ -14,3 +14,7 @@ type Task struct {
 	Manual bool // true means that the task is added by hand
 	State  TaskState
 }
+
+func (t *Task) String() string {
+	return t.Domain
+}

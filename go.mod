@@ -10,6 +10,7 @@ require (
 	github.com/jpillora/go-tld v1.2.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/vbauerster/mpb/v8 v8.4.0
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 )
 
 require (
