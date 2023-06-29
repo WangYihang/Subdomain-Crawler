@@ -29,7 +29,7 @@ var (
 func init() {
 	_, err := flags.Parse(&model.Opts)
 	if err != nil {
-		panic(err)
+		os.Exit(1)
 	}
 
 	common.RestyClient = resty.New()
