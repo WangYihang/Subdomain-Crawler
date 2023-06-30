@@ -49,7 +49,7 @@ func CrawlAllSubdomains(sld string, sldWaitGroup *sync.WaitGroup, p *mpb.Progres
 
 	mpb.BarStyle()
 	bar := p.AddBar(0,
-		mpb.BarOptional(mpb.BarRemoveOnComplete(), false),
+		mpb.BarOptional(mpb.BarRemoveOnComplete(), true),
 		mpb.PrependDecorators(
 			decor.Name(sld, decor.WCSyncWidth),
 		),
