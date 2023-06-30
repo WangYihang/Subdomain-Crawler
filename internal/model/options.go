@@ -10,8 +10,8 @@ type IOOptions struct {
 type Options struct {
 	IOOptions
 	Timeout                int  `short:"t" long:"timeout" description:"Timeout of each HTTP request (in seconds)" default:"4"`
-	NumWorkers             int  `short:"n" long:"num-workers" description:"Number of workers" default:"16"`
-	NumGoroutinesPerWorker int  `short:"g" long:"num-goroutines-per-worker" description:"Number of goroutines per worker" default:"32"`
+	NumWorkers             int  `short:"n" long:"num-workers" description:"Number of workers" default:"8"`
+	NumGoroutinesPerWorker int  `short:"g" long:"num-goroutines-per-worker" description:"Number of goroutines per worker" default:"16"`
 	Debug                  bool `short:"d" long:"debug" description:"Enable debug mode"`
 	Version                bool `short:"v" long:"version" description:"Version"`
 }
