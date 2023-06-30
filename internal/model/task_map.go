@@ -10,12 +10,13 @@ import (
 type TaskMap struct {
 	tasks   map[string]*Task
 	numDone int
+	numAll  int
 	mu      *sync.Mutex
 	wg      *sync.WaitGroup
 	f       *os.File
 }
 
-func CreateTaskMap(sld string) (*TaskMap, error) {
+func CreateTaskMap(sld string) (TaskMap, error) {
 	// Create folder
 	outputFilepath := filepath.Join(Opts.OutputFolder, fmt.Sprintf("%s.txt", sld))
 	os.MkdirAll(filepath.Dir(outputFilepath), 0755)
@@ -23,11 +24,11 @@ func CreateTaskMap(sld string) (*TaskMap, error) {
 	// Create file
 	f, err := os.OpenFile(outputFilepath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
-		return nil, err
+		return TaskMap{}, err
 	}
 
 	// Create task map
-	return &TaskMap{
+	return TaskMap{
 		tasks: make(map[string]*Task),
 		mu:    &sync.Mutex{},
 		wg:    &sync.WaitGroup{},
@@ -47,6 +48,7 @@ func (r *TaskMap) AddTask(domain string, sld string, manual bool) {
 			State:  Todo,
 		}
 		r.wg.Add(1)
+		r.numAll++
 	}
 }
 
@@ -99,4 +101,11 @@ func (r *TaskMap) GetTask() (*Task, error) {
 		}
 	}
 	return nil, fmt.Errorf("no more tasks")
+}
+
+func (r *TaskMap) CheckDone() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.numDone == r.numAll
 }

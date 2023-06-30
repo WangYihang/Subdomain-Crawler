@@ -61,6 +61,10 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 	for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
 		go func() {
 			for {
+				if taskMap.CheckDone() {
+					break
+				}
+
 				task, err := taskMap.GetTask()
 				start := time.Now()
 
