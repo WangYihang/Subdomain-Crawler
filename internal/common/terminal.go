@@ -1,10 +1,12 @@
 package common
 
-import "golang.org/x/crypto/ssh/terminal"
+import (
+	"github.com/olekukonko/ts"
+)
 
 var TerminalWidth int
 
 func init() {
-	width, _, _ := terminal.GetSize(0)
-	TerminalWidth = width
+	size, _ := ts.GetSize()
+	TerminalWidth = size.Col()
 }
