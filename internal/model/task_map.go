@@ -16,7 +16,7 @@ type TaskMap struct {
 	f       *os.File
 }
 
-func CreateTaskMap(sld string) (TaskMap, error) {
+func CreateTaskMap(sld string) (*TaskMap, error) {
 	// Create folder
 	outputFilepath := filepath.Join(Opts.OutputFolder, fmt.Sprintf("%s.txt", sld))
 	os.MkdirAll(filepath.Dir(outputFilepath), 0755)
@@ -24,11 +24,11 @@ func CreateTaskMap(sld string) (TaskMap, error) {
 	// Create file
 	f, err := os.OpenFile(outputFilepath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
-		return TaskMap{}, err
+		return nil, err
 	}
 
 	// Create task map
-	return TaskMap{
+	return &TaskMap{
 		tasks: make(map[string]*Task),
 		mu:    &sync.Mutex{},
 		wg:    &sync.WaitGroup{},

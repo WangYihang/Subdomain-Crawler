@@ -9,6 +9,8 @@ import (
 
 	"github.com/WangYihang/Subdomain-Crawler/internal/common"
 	"github.com/WangYihang/Subdomain-Crawler/internal/model"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/enriquebris/goconcurrentqueue"
 	"github.com/jpillora/go-tld"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
@@ -31,17 +33,23 @@ func Crawl(domain string) ([]string, error) {
 	return FilterDomain(MatchDomains(resp.Body()), root), nil
 }
 
-func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
-	taskMap, err := model.CreateTaskMap(sld)
-	if err != nil {
-		return err
-	}
+func CrawlAllSubdomains(sld string, sldWaitGroup *sync.WaitGroup, p *mpb.Progress) error {
+	queue := goconcurrentqueue.NewFIFO()
+	wg := &sync.WaitGroup{}
+	scheduledDomains := mapset.NewSet[string]()
+	var numAll int64 = 0
+	var numDone int64 = 0
 
 	for _, subdomain := range ExpandSubdomains(sld) {
-		taskMap.AddTask(subdomain, sld, true)
+		queue.Enqueue(subdomain)
+		scheduledDomains.Add(subdomain)
+		wg.Add(1)
+		atomic.AddInt64(&numAll, 1)
 	}
 
+	mpb.BarStyle()
 	bar := p.AddBar(0,
+		mpb.BarOptional(mpb.BarRemoveOnComplete(), false),
 		mpb.PrependDecorators(
 			decor.Name(sld, decor.WCSyncWidth),
 		),
@@ -54,53 +62,60 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 		),
 	)
 
-	numDone, numAll := taskMap.GetState()
 	bar.SetCurrent(int64(numDone))
 	bar.SetTotal(int64(numAll), false)
 
 	for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
 		go func() {
 			for {
-				if taskMap.CheckDone() {
-					break
-				}
-
-				task, err := taskMap.GetTask()
-				start := time.Now()
+				task, err := queue.DequeueOrWaitForNextElement()
 
 				if err != nil {
-					time.Sleep(2 * time.Second)
 					continue
 				}
 
-				domains, err := Crawl(task.Domain)
+				if task == nil {
+					break
+				}
 
-				if err != nil {
-					taskMap.DoneWithFail(task.Domain)
-				} else {
+				start := time.Now()
+				domain := task.(string)
+				domains, err := Crawl(domain)
+
+				if err == nil {
 					for _, domain := range domains {
-						taskMap.AddTask(domain, task.Sld, false)
+						if !scheduledDomains.Contains(domain) {
+							queue.Enqueue(domain)
+							scheduledDomains.Add(domain)
+							wg.Add(1)
+							atomic.AddInt64(&numAll, 1)
+						}
 					}
-					taskMap.DoneWithSuccess(task.Domain)
 					atomic.AddInt64(&common.NumFoundSubdomains, 1)
 				}
 
-				numDone, numAll := taskMap.GetState()
+				atomic.AddInt64(&numDone, 1)
 				bar.EwmaSetCurrent(int64(numDone), time.Since(start))
 				bar.SetTotal(int64(numAll), false)
 
-				stateString := fmt.Sprintf("%s [%d / %d]", task.String(), common.NumDoneSlds, common.NumAllSlds)
+				stateString := fmt.Sprintf("%s [%d / %d]", domain, common.NumDoneSlds, common.NumAllSlds)
 				fmt.Printf("%s%s\r", strings.Repeat(" ", max(common.TerminalWidth-len(stateString), 0)), stateString)
+
+				wg.Done()
 			}
 		}()
 	}
 
-	taskMap.Wait()
+	wg.Wait()
 
 	bar.SetTotal(-1, true)
 
-	wg.Done()
+	for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
+		queue.Enqueue(nil)
+	}
 	atomic.AddInt64(&common.NumDoneSlds, 1)
+
+	sldWaitGroup.Done()
 
 	return nil
 }

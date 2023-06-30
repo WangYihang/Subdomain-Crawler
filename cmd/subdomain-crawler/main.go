@@ -44,12 +44,12 @@ func init() {
 	}
 
 	wg = &sync.WaitGroup{}
-	queue = make(chan string, model.Opts.NumWorkers)
 	p = mpb.New(
 		mpb.WithWaitGroup(nil),
 		mpb.WithRefreshRate(500*time.Millisecond),
 	)
 	common.NumAllSlds = util.CountNumLines(model.Opts.InputFile)
+	queue = make(chan string, common.NumAllSlds)
 }
 
 func loader(filepath string) {
@@ -74,6 +74,9 @@ func main() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
+
+	loader(model.Opts.InputFile)
+
 	for i := 0; i < model.Opts.NumWorkers; i++ {
 		go func() {
 			for domain := range queue {
@@ -85,7 +88,7 @@ func main() {
 			wg.Done()
 		}()
 	}
-	loader(model.Opts.InputFile)
+
 	wg.Wait()
 	p.Wait()
 }
