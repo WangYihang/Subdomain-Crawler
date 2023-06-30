@@ -2,7 +2,16 @@
 
 The program aims to help you collect subdomains of a list of given second-level domains (SLD).
 
-![](./assets/demo.gif)
+![](assets/demo.gif)
+
+## Installation
+
+* Option 1: Download from [GitHub Releases](https://github.com/WangYihang/Subdomain-Crawler/releases/latest) directly (Recommended)
+* Option 2: Go Install
+
+  ```bash
+  $ go install github.com/WangYihang/Subdomain-Crawler/cmd/subdomain-crawler@latest
+  ```
 
 ## Usage
 
@@ -16,10 +25,11 @@ fudan.edu.cn
 sjtu.edu.cn
 zju.edu.cn
 ```
+
 2. Run the program
 
 ```bash
-$ ./subdomain-crawler --help
+$ subdomain-crawler --help
 Usage:
   subdomain-crawler [OPTIONS]
 
@@ -34,8 +44,9 @@ Application Options:
 Help Options:
   -h, --help           Show this help message
 
-$ ./subdomain-crawler
+$ subdomain-crawler
 ```
+
 3. Check out the result in `output/` folder.
 
 ```bash
