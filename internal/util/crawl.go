@@ -2,6 +2,8 @@ package util
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -40,8 +42,24 @@ func CrawlAllSubdomains(sld string, sldWaitGroup *sync.WaitGroup, p *mpb.Progres
 	var numAll int64 = 0
 	var numDone int64 = 0
 
+	// Create folder
+	outputFilepath := filepath.Join(model.Opts.OutputFolder, fmt.Sprintf("%s.txt", sld))
+	os.MkdirAll(filepath.Dir(outputFilepath), 0755)
+
+	// Create file
+	mu := sync.Mutex{}
+	f, err := os.OpenFile(outputFilepath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
 	for _, subdomain := range ExpandSubdomains(sld) {
-		queue.Enqueue(subdomain)
+		queue.Enqueue(&model.Task{
+			Sld:    sld,
+			Domain: subdomain,
+			Manual: true,
+		})
 		scheduledDomains.Add(subdomain)
 		wg.Add(1)
 		atomic.AddInt64(&numAll, 1)
@@ -68,37 +86,50 @@ func CrawlAllSubdomains(sld string, sldWaitGroup *sync.WaitGroup, p *mpb.Progres
 	for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
 		go func() {
 			for {
-				task, err := queue.DequeueOrWaitForNextElement()
+				rawTask, err := queue.DequeueOrWaitForNextElement()
 
 				if err != nil {
 					continue
 				}
 
-				if task == nil {
+				if rawTask == nil {
 					break
 				}
 
 				start := time.Now()
-				domain := task.(string)
-				domains, err := Crawl(domain)
+				task := rawTask.(*model.Task)
+				subdomains, err := Crawl(task.Domain)
 
-				if err == nil {
-					for _, domain := range domains {
-						if !scheduledDomains.Contains(domain) {
-							queue.Enqueue(domain)
-							scheduledDomains.Add(domain)
+				if err != nil {
+					if !task.Manual {
+						mu.Lock()
+						f.WriteString(fmt.Sprintf("%s\n", task.Domain))
+						mu.Unlock()
+					}
+				} else {
+					for _, subdomain := range subdomains {
+						if !scheduledDomains.Contains(subdomain) {
+							queue.Enqueue(&model.Task{
+								Sld:    sld,
+								Domain: subdomain,
+								Manual: false,
+							})
+							scheduledDomains.Add(subdomain)
 							wg.Add(1)
 							atomic.AddInt64(&numAll, 1)
 						}
 					}
 					atomic.AddInt64(&common.NumFoundSubdomains, 1)
+					mu.Lock()
+					f.WriteString(fmt.Sprintf("%s\n", task.Domain))
+					mu.Unlock()
 				}
 
 				atomic.AddInt64(&numDone, 1)
 				bar.EwmaSetCurrent(int64(numDone), time.Since(start))
 				bar.SetTotal(int64(numAll), false)
 
-				stateString := fmt.Sprintf("%s [%d / %d]", domain, common.NumDoneSlds, common.NumAllSlds)
+				stateString := fmt.Sprintf("%s [%d / %d]", task.String(), common.NumDoneSlds, common.NumAllSlds)
 				fmt.Printf("%s%s\r", strings.Repeat(" ", max(common.TerminalWidth-len(stateString), 0)), stateString)
 
 				wg.Done()
