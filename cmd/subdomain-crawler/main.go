@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"net/http"
@@ -44,7 +45,11 @@ func init() {
 
 	wg = &sync.WaitGroup{}
 	queue = make(chan string, model.Opts.NumWorkers)
-	p = mpb.New(mpb.WithWaitGroup(nil))
+	p = mpb.New(
+		mpb.WithWaitGroup(nil),
+		mpb.WithRefreshRate(500*time.Millisecond),
+	)
+	common.NumAllSlds = util.CountNumLines(model.Opts.InputFile)
 }
 
 func loader(filepath string) {
@@ -58,6 +63,7 @@ func loader(filepath string) {
 	for fileScanner.Scan() {
 		queue <- fileScanner.Text()
 		wg.Add(1)
+		atomic.AddInt64(&common.NumScheduledSlds, 1)
 	}
 }
 

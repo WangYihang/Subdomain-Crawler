@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/WangYihang/Subdomain-Crawler/internal/common"
@@ -42,16 +43,13 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 
 	bar := p.AddBar(0,
 		mpb.PrependDecorators(
-			// simple name decorator
-			decor.Name(fmt.Sprintf("%16s", sld)),
-			// decor.DSyncWidth bit enables column width synchronization
-			decor.Percentage(decor.WCSyncSpace),
+			decor.Name(sld, decor.WCSyncWidth),
 		),
 		mpb.AppendDecorators(
-			// replace ETA decorator with "done" message, OnComplete event
+			decor.CountersNoUnit("[%d / %d]", decor.WCSyncWidth),
+			decor.Percentage(decor.WCSyncSpace),
 			decor.OnComplete(
-				// ETA decorator with ewma age of 30
-				decor.EwmaETA(decor.ET_STYLE_GO, 30, decor.WCSyncWidth), "done",
+				decor.EwmaETA(decor.ET_STYLE_GO, 30, decor.WCSyncSpace), "done",
 			),
 		),
 	)
@@ -60,15 +58,14 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 	bar.SetCurrent(int64(numDone))
 	bar.SetTotal(int64(numAll), false)
 
-	numWorkers := 32
-	for i := 0; i < numWorkers; i++ {
+	for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
 		go func() {
 			for {
 				task, err := taskMap.GetTask()
 				start := time.Now()
 
 				if err != nil {
-					time.Sleep(64 * time.Millisecond)
+					time.Sleep(2 * time.Second)
 					continue
 				}
 
@@ -81,13 +78,14 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 						taskMap.AddTask(domain, task.Sld, false)
 					}
 					taskMap.DoneWithSuccess(task.Domain)
+					atomic.AddInt64(&common.NumFoundSubdomains, 1)
 				}
 
 				numDone, numAll := taskMap.GetState()
 				bar.EwmaSetCurrent(int64(numDone), time.Since(start))
 				bar.SetTotal(int64(numAll), false)
 
-				stateString := fmt.Sprintf("%s [%d / %d]", task.String(), numDone, numAll)
+				stateString := fmt.Sprintf("%s [%d / %d]", task.String(), common.NumDoneSlds, common.NumAllSlds)
 				fmt.Printf("%s%s\r", strings.Repeat(" ", max(common.TerminalWidth-len(stateString), 0)), stateString)
 			}
 		}()
@@ -98,6 +96,7 @@ func CrawlAllSubdomains(sld string, wg *sync.WaitGroup, p *mpb.Progress) error {
 	bar.SetTotal(-1, true)
 
 	wg.Done()
+	atomic.AddInt64(&common.NumDoneSlds, 1)
 
 	return nil
 }
