@@ -21,6 +21,12 @@ func TestMatchDomains(t *testing.T) {
 				"yule.360.com",
 			},
 		},
+		{
+			[]byte(`object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'report-sample' wappass.baidu.com:*`),
+			[]string{
+				"wappass.baidu.com",
+			},
+		},
 	}
 	for _, tc := range testCases {
 		got := util.MatchDomains(tc.body)

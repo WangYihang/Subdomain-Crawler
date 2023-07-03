@@ -32,7 +32,20 @@ func Crawl(domain string) ([]string, error) {
 	}
 
 	root := strings.Join([]string{u.Domain, u.TLD}, ".")
-	return FilterDomain(MatchDomains(resp.Body()), root), nil
+	results := []string{}
+
+	// Extract subdomains from body content
+	subdomainsFromContent := FilterDomain(MatchDomains(resp.Body()), root)
+	results = append(results, subdomainsFromContent...)
+
+	// Extract subdomains from header
+	subdomainsFromHeader := []string{}
+	for _, headerValue := range resp.Header() {
+		subdomainsFromHeader = append(subdomainsFromHeader, FilterDomain(MatchDomains([]byte(strings.Join(headerValue, ", "))), root)...)
+	}
+
+	results = append(results, subdomainsFromHeader...)
+	return results, nil
 }
 
 func CrawlAllSubdomains(sld string, sldWaitGroup *sync.WaitGroup, p *mpb.Progress) error {
