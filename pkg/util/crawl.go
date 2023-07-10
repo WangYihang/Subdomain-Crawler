@@ -72,14 +72,14 @@ func Crawl(domain string, logs chan []byte) (chan string, error) {
 		defer close(queue)
 
 		// Extract subdomains from body content
-		for _, subdomainsFromContent := range FilterDomain(MatchDomains(body), root) {
+		for subdomainsFromContent := range FilterDomainBytes(MatchDomainsBytes(body), []byte(root)) {
 			queue <- subdomainsFromContent
 		}
 
 		// Extract subdomains from header
 		for _, headerValues := range response.Header {
 			for _, headerValue := range headerValues {
-				for _, subdomainFromHeaderValue := range FilterDomain(MatchDomains([]byte(headerValue)), root) {
+				for subdomainFromHeaderValue := range FilterDomainBytes(MatchDomainsBytes([]byte(headerValue)), []byte(root)) {
 					queue <- subdomainFromHeaderValue
 				}
 			}

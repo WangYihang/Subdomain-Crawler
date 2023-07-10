@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -15,6 +16,11 @@ var re *regexp.Regexp = regexp.MustCompile(`(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9
 // MatchDomains returns all matched domains in body
 func MatchDomains(body []byte) []string {
 	return re.FindAllString(string(body), -1)
+}
+
+// MatchDomainsBytes returns all matched domains in body in bytes type to avoid []byte to string conversion
+func MatchDomainsBytes(body []byte) [][]byte {
+	return re.FindAll(body, -1)
 }
 
 // ExpandSubdomains returns all subdomains of domain
@@ -86,4 +92,31 @@ func FilterDomain(domains []string, root string) []string {
 		}
 	}
 	return filteredDomains.ToSlice()
+}
+
+// FilterDomainBytes returns all domains that match root in bytes type to avoid []byte to string conversion
+func FilterDomainBytes(domains [][]byte, root []byte) chan string {
+	queue := make(chan string)
+
+	go func() {
+		defer close(queue)
+		invalidPrefixes := [][]byte{[]byte("u002f"), []byte("2f")}
+		for _, domain := range domains {
+			if bytes.HasSuffix(domain, root) {
+				matched := false
+				for _, invalidPrefix := range invalidPrefixes {
+					if bytes.HasPrefix(bytes.ToLower(domain), invalidPrefix) {
+						queue <- string(domain[len(invalidPrefix):])
+						matched = true
+					}
+				}
+				if !matched {
+					queue <- string(domain)
+				}
+			}
+		}
+
+	}()
+
+	return queue
 }
