@@ -5,8 +5,6 @@ go 1.20
 require (
 	github.com/anaskhan96/soup v1.2.5
 	github.com/deckarep/golang-set/v2 v2.3.0
-	github.com/enriquebris/goconcurrentqueue v0.7.0
-	github.com/go-resty/resty/v2 v2.7.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/jpillora/go-tld v1.2.1
 	github.com/olekukonko/ts v0.0.0-20171002115256-78ecb04241c0
@@ -26,8 +24,9 @@ require (
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
+	github.com/stretchr/testify v1.8.3 // indirect
+	golang.org/x/net v0.12.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/text v0.11.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 )

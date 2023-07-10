@@ -1,12 +1,15 @@
 package model
 
+// Opts is the options for the program
 var Opts Options
 
+// IOOptions is the options for input and output
 type IOOptions struct {
 	InputFile    string `short:"i" long:"input-file" description:"The input file" required:"true" default:"input.txt"`
 	OutputFolder string `short:"o" long:"output-folder" description:"The output folder" required:"true" default:"output"`
 }
 
+// Options is the options for the program
 type Options struct {
 	IOOptions
 	Timeout                int  `short:"t" long:"timeout" description:"Timeout of each HTTP request (in seconds)" default:"16"`

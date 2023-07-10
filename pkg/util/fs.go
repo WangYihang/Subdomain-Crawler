@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// CountNumLines counts the number of lines in a file
 func CountNumLines(filepath string) int64 {
 	file, err := os.Open(filepath)
 	if err != nil {

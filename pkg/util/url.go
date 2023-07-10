@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-func UrlDecode(body string) string {
+// URLDecode decodes a string to a plain URL once
+func URLDecode(body string) string {
 	var i int
 	buf := strings.Builder{}
 	for i = 0; i < len(body)-2; i++ {

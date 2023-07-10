@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/WangYihang/Subdomain-Crawler/internal/util"
+	"github.com/WangYihang/Subdomain-Crawler/pkg/util"
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
@@ -34,6 +34,13 @@ func TestMatchDomains(t *testing.T) {
 		if !reflect.DeepEqual(got, tc.expected) {
 			t.Errorf("Expected %s but got %s", tc.expected, got)
 		}
+	}
+}
+
+func BenchmarkMatchDomains(b *testing.B) {
+	body := []byte(`<a class="nav-card mr20" href="https://hao.360.com/" target="_blank">a.360.com<a class="nav-card mr20" href="https://yule.360.com/" target="_blank">`)
+	for i := 0; i < b.N; i++ {
+		util.MatchDomains(body)
 	}
 }
 

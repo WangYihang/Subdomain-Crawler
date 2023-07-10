@@ -14,7 +14,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -s -w -X github.com/WangYihang/Subdomain-Crawler/internal/common.Version={{.Version}} -X github.com/WangYihang/Subdomain-Crawler/internal/common.BuildTime={{.Date}} -X github.com/WangYihang/Subdomain-Crawler/internal/common.CommitHash={{.Commit}} -X main.builtBy=goreleaser'
+      - -s -w -X github.com/WangYihang/Subdomain-Crawler/pkg/common.Version={{.Version}} -X github.com/WangYihang/Subdomain-Crawler/pkg/common.BuildTime={{.Date}} -X github.com/WangYihang/Subdomain-Crawler/pkg/common.CommitHash={{.Commit}} -X main.builtBy=goreleaser'
 
 archives:
   - format: tar.gz
