@@ -25,3 +25,6 @@ dist/
 
 # Output folder
 output/
+
+# Debug binaries
+__debug_bin
