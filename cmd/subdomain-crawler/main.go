@@ -34,7 +34,7 @@ func init() {
 	}
 
 	// Init HTTP client
-	timeout := 1
+	timeout := model.Opts.Timeout
 	transport := http.Transport{
 		Dial: (&net.Dialer{
 			// Modify the time to wait for a connection to establish
