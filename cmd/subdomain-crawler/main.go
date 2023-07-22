@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"os"
 	"sync/atomic"
@@ -17,6 +18,8 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/pkg/model"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/util"
 	"github.com/jessevdk/go-flags"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 )
 
 func init() {
@@ -53,26 +56,26 @@ func init() {
 	// Count all tasks
 	common.NumAllTasks = util.CountNumLines(model.Opts.InputFile)
 
-	// // Init progress bar
-	// common.Progress = mpb.New(
-	// 	mpb.WithWaitGroup(nil),
-	// 	mpb.WithRefreshRate(500*time.Millisecond),
-	// )
-	// common.Bar = common.Progress.AddBar(
-	// 	int64(common.NumAllTasks),
-	// 	mpb.BarOptional(mpb.BarRemoveOnComplete(), true),
-	// 	mpb.PrependDecorators(
-	// 		decor.Name("total", decor.WCSyncWidth),
-	// 	),
-	// 	mpb.AppendDecorators(
-	// 		decor.CountersNoUnit("[%d / %d]", decor.WCSyncWidth),
-	// 		decor.Percentage(decor.WCSyncSpace),
-	// 		decor.OnComplete(
-	// 			decor.EwmaETA(decor.ET_STYLE_GO, 30, decor.WCSyncSpace), "done",
-	// 		),
-	// 	),
-	// )
-	// common.Progress.UpdateBarPriority(common.Bar, math.MaxInt)
+	// Init progress bar
+	common.Progress = mpb.New(
+		mpb.WithWaitGroup(nil),
+		mpb.WithRefreshRate(500*time.Millisecond),
+	)
+	common.Bar = common.Progress.AddBar(
+		int64(common.NumAllTasks),
+		mpb.BarOptional(mpb.BarRemoveOnComplete(), true),
+		mpb.PrependDecorators(
+			decor.Name("total", decor.WCSyncWidth),
+		),
+		mpb.AppendDecorators(
+			decor.CountersNoUnit("[%d / %d]", decor.WCSyncWidth),
+			decor.Percentage(decor.WCSyncSpace),
+			decor.OnComplete(
+				decor.EwmaETA(decor.ET_STYLE_GO, 30, decor.WCSyncSpace), "done",
+			),
+		),
+	)
+	common.Progress.UpdateBarPriority(common.Bar, math.MaxInt)
 }
 
 func Loader(filepath string) chan string {
@@ -97,7 +100,7 @@ func Loader(filepath string) chan string {
 	return taskQueue
 }
 
-func mainA() {
+func prod() {
 	if model.Opts.Debug {
 		go util.PrometheusExporter()
 		go func() {
@@ -111,7 +114,9 @@ func mainA() {
 	for i := 0; i < model.Opts.NumWorkers; i++ {
 		go func() {
 			for task := range tasks {
+				startTime := time.Now()
 				util.CrawlAllSubdomains(task)
+				common.Bar.EwmaIncrInt64(1, time.Since(startTime))
 			}
 			stop <- true
 		}()
@@ -121,18 +126,17 @@ func mainA() {
 		<-stop
 	}
 
-	// // Set total number of tasks to trigger progress bar completion
-	// common.Bar.SetTotal(common.NumAllTasks, true)
+	// Set total number of tasks to trigger progress bar completion
+	common.Bar.SetTotal(common.NumAllTasks, true)
 
-	// // Wait for progress bar to finish
-	// common.Progress.Wait()
+	// Wait for progress bar to finish
+	common.Progress.Wait()
 }
 
-func mainB() {
-	// util.CrawlAllSubdomains("tsinghua.edu.cn")
-	// util.CrawlAllSubdomains("sjtu.edu.cn")
+func dev() {
+	util.CrawlAllSubdomains("tsinghua.edu.cn")
 }
 
 func main() {
-	mainA()
+	prod()
 }
