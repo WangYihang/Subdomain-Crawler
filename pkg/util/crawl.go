@@ -157,7 +157,6 @@ func Worker(tasks chan *Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix st
 			r := Processer(task, suffix)
 			results <- r
 			go func() {
-				defer wg.Done()
 				for _, subdomain := range r.Subdomains {
 					if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
 						for url := range DomainToURLConverter(subdomain) {
@@ -166,6 +165,7 @@ func Worker(tasks chan *Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix st
 						}
 					}
 				}
+				wg.Done()
 			}()
 		}
 	}()
@@ -188,18 +188,21 @@ func Loader(domain string, wg *sync.WaitGroup, scheduled *sync.Map) chan *Task {
 	return tasks
 }
 
-func Printer(path string, results chan *Result) {
+func Printer(path string, results chan *Result) int {
 	os.MkdirAll(filepath.Dir(path), 0755)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
-		return
+		return -1
 	}
 	defer f.Close()
 
+	count := 0
 	for result := range results {
 		f.Write(result.ToJSON())
 		f.WriteString("\n")
+		count += 1
 	}
+	return count
 }
 
 func Merger(cs ...chan *Result) chan *Result {
@@ -242,7 +245,8 @@ func CrawlAllSubdomains(domain string) {
 		results = append(results, Worker(tasks, scheduled, wg, domain))
 	}
 	path := filepath.Join(model.Opts.OutputFolder, fmt.Sprintf("%s.json", domain))
-	Printer(path, Merger(results...))
-	numSpaces := common.TerminalWidth - len(domain)
-	fmt.Printf("%s%s\r", strings.Repeat(" ", numSpaces), domain)
+	count := Printer(path, Merger(results...))
+	suffix := fmt.Sprintf("(%d) %s", count, domain)
+	numSpaces := common.TerminalWidth - len(suffix)
+	fmt.Printf("%s%s\r", strings.Repeat(" ", numSpaces), suffix)
 }

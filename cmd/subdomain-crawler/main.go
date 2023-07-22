@@ -134,9 +134,10 @@ func prod() {
 }
 
 func dev() {
-	util.CrawlAllSubdomains("tsinghua.edu.cn")
+	util.CrawlAllSubdomains("pku.edu.cn")
 }
 
 func main() {
-	prod()
+	// prod()
+	dev()
 }
