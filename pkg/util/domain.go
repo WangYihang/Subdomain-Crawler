@@ -204,14 +204,16 @@ func ExtractDomains(body io.Reader) chan string {
 			if validDomainPartCharChecker(ch) {
 				builder.Append(ch)
 			} else {
-				if builder.Len() > 0 && validDomainChecker(builder.String()) {
-					out <- builder.String()
+				domain := builder.String()
+				if builder.Len() > 0 && validDomainChecker(domain) {
+					out <- domain
 				}
 				builder.Reset()
 			}
 		}
-		if builder.Len() > 0 && validDomainChecker(builder.String()) {
-			out <- builder.String()
+		domain := builder.String()
+		if builder.Len() > 0 && validDomainChecker(domain) {
+			out <- domain
 		}
 		builder.Reset()
 	}()
