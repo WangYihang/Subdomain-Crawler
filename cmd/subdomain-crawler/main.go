@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -46,6 +47,9 @@ func init() {
 		ResponseHeaderTimeout: time.Duration(timeout) * time.Second,
 		ExpectContinueTimeout: time.Duration(timeout) * time.Second,
 		DisableKeepAlives:     true,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 	}
 	common.HTTPClient = &http.Client{
 		Transport: &transport,
