@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,15 +47,8 @@ func DomainExtracter(response *http.Response) chan string {
 	out := make(chan string)
 	go func() {
 		defer close(out)
-		// Read Response Body
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			return
-		}
-		response.Body.Close()
-
 		// Extract domains from response body
-		for domain := range BodyDomainExtracter(body) {
+		for domain := range BodyDomainExtracter(response.Body) {
 			out <- domain
 		}
 
@@ -67,7 +61,7 @@ func DomainExtracter(response *http.Response) chan string {
 }
 
 // BodyDomainExtracter extracts domains from response body
-func BodyDomainExtracter(body []byte) chan string {
+func BodyDomainExtracter(body io.ReadCloser) chan string {
 	out := make(chan string)
 	go func() {
 		defer close(out)
@@ -85,7 +79,8 @@ func HeadersDomainExtracter(header http.Header) chan string {
 		defer close(out)
 		for _, values := range header {
 			for _, value := range values {
-				for domain := range ExtractDomains([]byte(value)) {
+				reader := bytes.NewReader([]byte(value))
+				for domain := range ExtractDomains(reader) {
 					out <- domain
 				}
 			}
@@ -128,7 +123,7 @@ func (db *DomainBuilder) Len() int {
 	return db.index
 }
 
-func ExtractDomains(body []byte) chan string {
+func ExtractDomains(body io.Reader) chan string {
 	out := make(chan string)
 	validHexCharChecker := func(ch byte) bool {
 		if ch >= 'a' && ch <= 'f' {
@@ -178,16 +173,33 @@ func ExtractDomains(body []byte) chan string {
 	go func() {
 		defer close(out)
 		builder := DomainBuilder{}
-		for i := 0; i < len(body); i++ {
-			ch := body[i]
+		buf := make([]byte, 1)
+		var foundPercent bool
+		var foundFirstHexChar bool
+		for {
+			n, err := body.Read(buf)
+			if err != nil {
+				break
+			}
+			if n == 0 {
+				continue
+			}
+			ch := buf[0]
 
-			if body[i] == '%' && i < len(body)-2 && validHexCharChecker(body[i+1]) && validHexCharChecker(body[i+2]) {
-				builder.Append(body[i+1])
-				builder.Append(body[i+2])
-				i += 2
+			if ch == '%' {
+				foundPercent = true
+				continue
+			}
+			if foundPercent && validHexCharChecker(ch) {
+				foundFirstHexChar = true
+				continue
+			}
+			if foundPercent && foundFirstHexChar && validHexCharChecker(ch) {
 				builder.Reset()
 				continue
 			}
+			foundPercent = false
+			foundFirstHexChar = false
 
 			if validDomainPartCharChecker(ch) {
 				builder.Append(ch)
