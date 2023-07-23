@@ -20,8 +20,8 @@ type Task struct {
 	Domain string `json:"domain"`
 }
 
-func NewTask(url, domain string) *Task {
-	return &Task{
+func NewTask(url, domain string) Task {
+	return Task{
 		URL:    url,
 		Domain: domain,
 	}
@@ -45,9 +45,9 @@ type Result struct {
 	Error              string      `json:"error"`
 }
 
-func NewResult(task *Task) *Result {
-	return &Result{
-		Task:            *task,
+func NewResult(task Task) Result {
+	return Result{
+		Task:            task,
 		StartTime:       time.Now().UnixMilli(),
 		EndTime:         -1,
 		Subdomains:      []string{},
@@ -57,7 +57,7 @@ func NewResult(task *Task) *Result {
 	}
 }
 
-func (r *Result) ToJSON() []byte {
+func (r Result) ToJSON() []byte {
 	jsonBytes, err := json.Marshal(r)
 	if err != nil {
 		return []byte{}
@@ -91,7 +91,7 @@ func QueryCNAME(domain string) string {
 	return fqdn
 }
 
-func Processer(task *Task, suffix string) (result *Result) {
+func Processer(task Task, suffix string) (result Result) {
 	// Create result object
 	result = NewResult(task)
 	defer func() {
@@ -149,8 +149,8 @@ func StringSliceToChan(s []string) chan string {
 	return out
 }
 
-func Worker(tasks chan *Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix string) chan *Result {
-	results := make(chan *Result)
+func Worker(tasks chan Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix string) chan Result {
+	results := make(chan Result)
 	go func() {
 		defer close(results)
 		for task := range tasks {
@@ -172,14 +172,14 @@ func Worker(tasks chan *Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix st
 	return results
 }
 
-func Loader(domain string, wg *sync.WaitGroup, scheduled *sync.Map) chan *Task {
-	tasksSlice := []*Task{}
+func Loader(domain string, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
+	tasksSlice := []Task{}
 	for domain := range ExpandSubdomains(domain) {
 		for url := range DomainToURLConverter(domain) {
 			tasksSlice = append(tasksSlice, NewTask(url, domain))
 		}
 	}
-	tasks := make(chan *Task, len(tasksSlice))
+	tasks := make(chan Task, len(tasksSlice))
 	for _, task := range tasksSlice {
 		wg.Add(1)
 		tasks <- task
@@ -188,7 +188,7 @@ func Loader(domain string, wg *sync.WaitGroup, scheduled *sync.Map) chan *Task {
 	return tasks
 }
 
-func Printer(path string, results chan *Result) int {
+func Printer(path string, results chan Result) int {
 	os.MkdirAll(filepath.Dir(path), 0755)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
@@ -205,13 +205,13 @@ func Printer(path string, results chan *Result) int {
 	return count
 }
 
-func Merger(cs ...chan *Result) chan *Result {
+func Merger(cs ...chan Result) chan Result {
 	var wg sync.WaitGroup
-	out := make(chan *Result)
+	out := make(chan Result)
 
 	// Start an output goroutine for each input channel in cs.  output
 	// copies values from c to out until c is closed, then calls wg.Done.
-	output := func(c <-chan *Result) {
+	output := func(c <-chan Result) {
 		for n := range c {
 			out <- n
 		}
@@ -233,7 +233,7 @@ func Merger(cs ...chan *Result) chan *Result {
 
 // CrawlAllSubdomains crawls all subdomains of domain
 func CrawlAllSubdomains(domain string) {
-	results := []chan *Result{}
+	results := []chan Result{}
 	scheduled := &sync.Map{}
 	wg := &sync.WaitGroup{}
 	tasks := Loader(domain, wg, scheduled)

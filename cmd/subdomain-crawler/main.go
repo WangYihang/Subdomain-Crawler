@@ -134,10 +134,10 @@ func prod() {
 }
 
 func dev() {
-	util.CrawlAllSubdomains("pku.edu.cn")
+	fmt.Println(model.Opts.Domain)
+	util.CrawlAllSubdomains(model.Opts.Domain)
 }
 
 func main() {
-	// prod()
-	dev()
+	prod()
 }
