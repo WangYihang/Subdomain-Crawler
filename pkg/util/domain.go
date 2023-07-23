@@ -1,11 +1,11 @@
 package util
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"unsafe"
 )
 
 // ExpandSubdomains returns all subdomains of domain
@@ -79,7 +79,7 @@ func HeadersDomainExtracter(header http.Header) chan string {
 		defer close(out)
 		for _, values := range header {
 			for _, value := range values {
-				reader := bytes.NewReader([]byte(value))
+				reader := io.NopCloser(strings.NewReader(value))
 				for domain := range ExtractDomains(reader) {
 					out <- domain
 				}
@@ -103,10 +103,20 @@ func (db *DomainBuilder) Append(ch byte) {
 }
 
 func (db *DomainBuilder) String() string {
+	return db.StringUnsafe()
+}
+
+func (db *DomainBuilder) StringBuilder() string {
 	builder := strings.Builder{}
 	builder.Grow(db.index)
 	builder.Write(db.domain[:db.index])
 	return builder.String()
+}
+
+func (db *DomainBuilder) StringUnsafe() string {
+	domain := make([]byte, db.index)
+	copy(domain, db.domain[:db.index])
+	return unsafe.String(unsafe.SliceData(domain), db.index)
 }
 
 func (db *DomainBuilder) StringSlow() string {
@@ -123,7 +133,7 @@ func (db *DomainBuilder) Len() int {
 	return db.index
 }
 
-func ExtractDomains(body io.Reader) chan string {
+func ExtractDomains(body io.ReadCloser) chan string {
 	out := make(chan string)
 	validHexCharChecker := func(ch byte) bool {
 		if ch >= 'a' && ch <= 'f' {
@@ -179,6 +189,7 @@ func ExtractDomains(body io.Reader) chan string {
 		for {
 			n, err := body.Read(buf)
 			if err != nil {
+				body.Close()
 				break
 			}
 			if n == 0 {

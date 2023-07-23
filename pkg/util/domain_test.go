@@ -2,6 +2,7 @@ package util_test
 
 import (
 	"bytes"
+	"io"
 	"reflect"
 	"testing"
 
@@ -47,7 +48,7 @@ func TestExtractDomains(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			domains := []string{}
-			reader := bytes.NewReader(tt.args.body)
+			reader := io.NopCloser(bytes.NewReader(tt.args.body))
 			for domain := range util.ExtractDomains(reader) {
 				domains = append(domains, domain)
 			}
@@ -91,9 +92,20 @@ func BenchmarkDomainBuilderStringSlow(b *testing.B) {
 	}
 }
 
+func BenchmarkDomainBuilderStringQuick(b *testing.B) {
+	domainBuilder := util.DomainBuilder{}
+	for i := 0; i < b.N; i++ {
+		domainBuilder.Append('a')
+		domainBuilder.Append('b')
+		domainBuilder.Append('c')
+		domainBuilder.Append('d')
+		_ = domainBuilder.StringUnsafe()
+	}
+}
+
 func BenchmarkExtractDomains(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		reader := bytes.NewReader([]byte("dhsjkalhfjklh.nxs.,cnd,.f/tsinghua.edu.cn|dds.d/%2fgithub.com"))
+		reader := io.NopCloser(bytes.NewReader([]byte("dhsjkalhfjklh.nxs.,cnd,.f/tsinghua.edu.cn|dds.d/%2fgithub.com")))
 		util.ExtractDomains(reader)
 	}
 }
