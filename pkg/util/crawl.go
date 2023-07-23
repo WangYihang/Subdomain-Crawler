@@ -156,8 +156,8 @@ func Worker(tasks chan Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix str
 		for task := range tasks {
 			r := Processer(task, suffix)
 			results <- r
-			go func() {
-				for _, subdomain := range r.Subdomains {
+			go func(subdomains []string) {
+				for _, subdomain := range subdomains {
 					if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
 						for url := range DomainToURLConverter(subdomain) {
 							wg.Add(1)
@@ -166,7 +166,7 @@ func Worker(tasks chan Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix str
 					}
 				}
 				wg.Done()
-			}()
+			}(r.Subdomains)
 		}
 	}()
 	return results
