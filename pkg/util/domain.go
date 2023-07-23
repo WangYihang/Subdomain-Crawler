@@ -108,6 +108,13 @@ func (db *DomainBuilder) Append(ch byte) {
 }
 
 func (db *DomainBuilder) String() string {
+	builder := strings.Builder{}
+	builder.Grow(db.index)
+	builder.Write(db.domain[:db.index])
+	return builder.String()
+}
+
+func (db *DomainBuilder) StringSlow() string {
 	domain := make([]byte, db.index)
 	copy(domain, db.domain[:db.index])
 	return string(domain)

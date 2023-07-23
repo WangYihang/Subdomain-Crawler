@@ -89,6 +89,28 @@ func TestDomainBuilder(t *testing.T) {
 	}
 }
 
+func BenchmarkDomainBuilderString(b *testing.B) {
+	domainBuilder := util.DomainBuilder{}
+	for i := 0; i < b.N; i++ {
+		domainBuilder.Append('a')
+		domainBuilder.Append('b')
+		domainBuilder.Append('c')
+		domainBuilder.Append('d')
+		_ = domainBuilder.String()
+	}
+}
+
+func BenchmarkDomainBuilderStringSlow(b *testing.B) {
+	domainBuilder := util.DomainBuilder{}
+	for i := 0; i < b.N; i++ {
+		domainBuilder.Append('a')
+		domainBuilder.Append('b')
+		domainBuilder.Append('c')
+		domainBuilder.Append('d')
+		_ = domainBuilder.StringSlow()
+	}
+}
+
 func BenchmarkExtractDomains(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		util.ExtractDomains([]byte("dhsjkalhfjklh.nxs.,cnd,.f/tsinghua.edu.cn|dds.d/%2fgithub.com"))
