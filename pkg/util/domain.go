@@ -185,6 +185,7 @@ func ExtractDomains(body io.ReadCloser) chan string {
 		builder := DomainBuilder{}
 		buf := make([]byte, 1)
 		var ppch, pch, ch byte
+		var domain string
 		for {
 			n, err := body.Read(buf)
 			if err != nil {
@@ -204,7 +205,7 @@ func ExtractDomains(body io.ReadCloser) chan string {
 			if validDomainPartCharChecker(ch) {
 				builder.Append(ch)
 			} else {
-				domain := builder.String()
+				domain = builder.String()
 				if builder.Len() > 0 && validDomainChecker(domain) {
 					out <- domain
 				}
@@ -214,7 +215,7 @@ func ExtractDomains(body io.ReadCloser) chan string {
 			ppch = pch
 			pch = ch
 		}
-		domain := builder.String()
+		domain = builder.String()
 		if builder.Len() > 0 && validDomainChecker(domain) {
 			out <- domain
 		}
