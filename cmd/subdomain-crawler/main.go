@@ -117,8 +117,9 @@ func prod() {
 
 	for i := 0; i < model.Opts.NumWorkers; i++ {
 		go func() {
+			var startTime time.Time
 			for task := range tasks {
-				startTime := time.Now()
+				startTime = time.Now()
 				util.CrawlAllSubdomains(task)
 				common.Bar.EwmaIncrInt64(1, time.Since(startTime))
 			}
@@ -143,5 +144,6 @@ func dev() {
 }
 
 func main() {
-	prod()
+	dev()
+	// prod()
 }
