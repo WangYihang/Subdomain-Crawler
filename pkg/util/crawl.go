@@ -1,6 +1,8 @@
 package util
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -231,6 +233,12 @@ func Merger(cs ...chan Result) chan Result {
 	return out
 }
 
+func Sha1Hash(data string) string {
+	h := sha1.New()
+	h.Write([]byte(data))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // CrawlAllSubdomains crawls all subdomains of domain
 func CrawlAllSubdomains(domain string) {
 	results := []chan Result{}
@@ -244,9 +252,11 @@ func CrawlAllSubdomains(domain string) {
 	for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
 		results = append(results, Worker(tasks, scheduled, wg, domain))
 	}
-	path := filepath.Join(model.Opts.OutputFolder, fmt.Sprintf("%s.json", domain))
+	hash := Sha1Hash(domain)
+	path := filepath.Join(model.Opts.OutputFolder, fmt.Sprintf("%s/%s/%s.json", hash[0:2], hash[2:4], domain))
 	count := Printer(path, Merger(results...))
 	suffix := fmt.Sprintf("(%d) %s", count, domain)
-	numSpaces := common.TerminalWidth - len(suffix)
-	fmt.Printf("%s%s\r", strings.Repeat(" ", numSpaces), suffix)
+	fmt.Println(suffix)
+	// numSpaces := common.TerminalWidth - len(suffix)
+	// fmt.Printf("%s%s\r", strings.Repeat(" ", numSpaces), suffix)
 }

@@ -139,10 +139,13 @@ func prod() {
 }
 
 func dev() {
-	fmt.Println(model.Opts.Domain)
 	util.CrawlAllSubdomains(model.Opts.Domain)
 }
 
 func main() {
-	prod()
+	if model.Opts.Domain != "" {
+		dev()
+	} else {
+		prod()
+	}
 }
