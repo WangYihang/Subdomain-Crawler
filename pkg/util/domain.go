@@ -184,8 +184,7 @@ func ExtractDomains(body io.ReadCloser) chan string {
 		defer close(out)
 		builder := DomainBuilder{}
 		buf := make([]byte, 1)
-		var foundPercent bool
-		var foundFirstHexChar bool
+		var ppch, pch, ch byte
 		for {
 			n, err := body.Read(buf)
 			if err != nil {
@@ -195,22 +194,12 @@ func ExtractDomains(body io.ReadCloser) chan string {
 			if n == 0 {
 				continue
 			}
-			ch := buf[0]
+			ch = buf[0]
 
-			if ch == '%' {
-				foundPercent = true
-				continue
-			}
-			if foundPercent && validHexCharChecker(ch) {
-				foundFirstHexChar = true
-				continue
-			}
-			if foundPercent && foundFirstHexChar && validHexCharChecker(ch) {
+			if ppch == '%' && validHexCharChecker(pch) && validHexCharChecker(ch) {
 				builder.Reset()
 				continue
 			}
-			foundPercent = false
-			foundFirstHexChar = false
 
 			if validDomainPartCharChecker(ch) {
 				builder.Append(ch)
@@ -221,6 +210,9 @@ func ExtractDomains(body io.ReadCloser) chan string {
 				}
 				builder.Reset()
 			}
+
+			ppch = pch
+			pch = ch
 		}
 		domain := builder.String()
 		if builder.Len() > 0 && validDomainChecker(domain) {

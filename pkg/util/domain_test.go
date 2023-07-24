@@ -44,6 +44,50 @@ func TestExtractDomains(t *testing.T) {
 			},
 			want: []string{"classx.pku.edu.cn", "mail.pku.edu.cn", "portal.pku.edu.cn", "classx.pku.edu.cn"},
 		},
+		{
+			name: "test4",
+			args: args{
+				body: []byte(`
+				<li class="yui3-u sm-footer-navitem sm-footer-navitem-login sm-login-button" data-nav="login"><a href="https://secure.smugmug.com/login?goTo=https%3A%2F%2Fm.smugmug.com%2F&goToToken=eyJzdHJpbmciOiJodHRwczovL20uc211Z211Zy5jb20vIiwidGltZSI6MTY5MDE3MzE3Miwic2lnbmF0dXJlIjoiTnpjM01HWTBNV0l5T0RrellUazFOMk5sWldWbU5ERmtOVFprWVRCa1pEUTJObVF4TXpKbVlRPT0iLCJ2ZXJzaW9uIjoxLCJhbGdvcml0aG0iOiJzaGExIn0%3D">Owner Log In</a></li>
+				`),
+			},
+			want: []string{"secure.smugmug.com", "m.smugmug.com"},
+		},
+		{
+			name: "test5",
+			args: args{
+				body: []byte(`=https%3A%2F%2Fm.smugmug.com%2F&`),
+			},
+			want: []string{"m.smugmug.com"},
+		},
+		{
+			name: "test6",
+			args: args{
+				body: []byte(`=https%3A%2F%2F%m.smugmug.com%2F&`),
+			},
+			want: []string{"m.smugmug.com"},
+		},
+		{
+			name: "test7",
+			args: args{
+				body: []byte(`=https%3A%2F%2F%%m.smugmug.com%2F&`),
+			},
+			want: []string{"m.smugmug.com"},
+		},
+		{
+			name: "test8",
+			args: args{
+				body: []byte(`=https%3A%2F%2F%%4xm.smugmug.com%2F&`),
+			},
+			want: []string{"4xm.smugmug.com"},
+		},
+		{
+			name: "test9",
+			args: args{
+				body: []byte(`=https%3A%2F%2F%%44m.smugmug.com%2F&`),
+			},
+			want: []string{"m.smugmug.com"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
