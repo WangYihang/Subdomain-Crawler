@@ -179,7 +179,7 @@ func Loader(domain string, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
 			tasksSlice = append(tasksSlice, NewTask(url, domain))
 		}
 	}
-	tasks := make(chan Task, len(tasksSlice))
+	tasks := make(chan Task, 8192)
 	for _, task := range tasksSlice {
 		wg.Add(1)
 		tasks <- task

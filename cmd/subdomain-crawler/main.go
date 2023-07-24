@@ -80,6 +80,13 @@ func init() {
 		),
 	)
 	common.Progress.UpdateBarPriority(common.Bar, math.MaxInt)
+
+	if model.Opts.Debug {
+		go util.PrometheusExporter()
+		go func() {
+			log.Println(http.ListenAndServe("localhost:36060", nil))
+		}()
+	}
 }
 
 func Loader(filepath string) chan string {
@@ -105,13 +112,6 @@ func Loader(filepath string) chan string {
 }
 
 func prod() {
-	if model.Opts.Debug {
-		go util.PrometheusExporter()
-		go func() {
-			log.Println(http.ListenAndServe("localhost:36060", nil))
-		}()
-	}
-
 	tasks := Loader(model.Opts.InputFile)
 	stop := make(chan bool)
 
@@ -144,6 +144,5 @@ func dev() {
 }
 
 func main() {
-	dev()
-	// prod()
+	prod()
 }
