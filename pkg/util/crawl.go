@@ -19,12 +19,14 @@ import (
 )
 
 type Task struct {
+	Rank   int    `json:"rank"`
 	URL    string `json:"url"`
 	Domain string `json:"domain"`
 }
 
-func NewTask(url, domain string) Task {
+func NewTask(rank int, url, domain string) Task {
 	return Task{
+		Rank:   rank,
 		URL:    url,
 		Domain: domain,
 	}
@@ -158,6 +160,7 @@ func Worker(tasks chan Task, numScheduled *int64, numMaxSubdomains int64, schedu
 		defer close(results)
 		for task := range tasks {
 			r := Processer(task, suffix)
+			rank := task.Rank
 			results <- r
 			go func(subdomains []string) {
 				for _, subdomain := range subdomains {
@@ -165,7 +168,7 @@ func Worker(tasks chan Task, numScheduled *int64, numMaxSubdomains int64, schedu
 						for url := range DomainToURLConverter(subdomain) {
 							if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
 								wg.Add(1)
-								tasks <- NewTask(url, subdomain)
+								tasks <- NewTask(rank, url, subdomain)
 								atomic.AddInt64(numScheduled, 1)
 							}
 						}
@@ -178,14 +181,14 @@ func Worker(tasks chan Task, numScheduled *int64, numMaxSubdomains int64, schedu
 	return results
 }
 
-func Loader(domain string, numScheduled *int64, numMaxSubdomains int64, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
+func Loader(rank int, domain string, numScheduled *int64, numMaxSubdomains int64, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
 	tasks := make(chan Task, numMaxSubdomains)
 	for subdomain := range ExpandSubdomains(domain) {
 		if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
 			for url := range DomainToURLConverter(subdomain) {
 				if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
 					wg.Add(1)
-					tasks <- NewTask(url, subdomain)
+					tasks <- NewTask(rank, url, subdomain)
 					atomic.AddInt64(numScheduled, 1)
 				}
 			}
@@ -245,12 +248,14 @@ func Sha1Hash(data string) string {
 }
 
 // CrawlAllSubdomains crawls all subdomains of domain
-func CrawlAllSubdomains(domain string) {
+func CrawlAllSubdomains(task Task) {
 	var numScheduled, numMaxSubdomains int64 = 0, 1024
+	domain := task.Domain
+	rank := task.Rank
 	results := []chan Result{}
 	scheduled := &sync.Map{}
 	wg := &sync.WaitGroup{}
-	tasks := Loader(domain, &numScheduled, numMaxSubdomains, wg, scheduled)
+	tasks := Loader(rank, domain, &numScheduled, numMaxSubdomains, wg, scheduled)
 	go func() {
 		wg.Wait()
 		close(tasks)
@@ -261,7 +266,7 @@ func CrawlAllSubdomains(domain string) {
 	hash := Sha1Hash(domain)
 	path := filepath.Join(model.Opts.OutputFolder, fmt.Sprintf("%s/%s/%s.json", hash[0:2], hash[2:4], domain))
 	count := Printer(path, Merger(results...))
-	suffix := fmt.Sprintf("(%d) %s", count, domain)
+	suffix := fmt.Sprintf("(%d) %s has %d subdomains", rank, domain, count)
 	fmt.Println(suffix)
 	// numSpaces := common.TerminalWidth - len(suffix)
 	// fmt.Printf("%s%s\r", strings.Repeat(" ", numSpaces), suffix)

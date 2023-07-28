@@ -9,6 +9,8 @@ import (
 	"math"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -89,8 +91,22 @@ func init() {
 	}
 }
 
-func Loader(filepath string) chan string {
-	taskQueue := make(chan string)
+func ParseLine(line string) (int, string, error) {
+	index := strings.Index(line, ",")
+	if index == -1 {
+		return -1, line, nil
+	}
+	rankString := line[:index]
+	domain := line[index+1:]
+	rank, err := strconv.Atoi(rankString)
+	if err != nil {
+		return -1, "", err
+	}
+	return rank, domain, nil
+}
+
+func Loader(filepath string) chan util.Task {
+	taskQueue := make(chan util.Task)
 
 	go func() {
 		defer close(taskQueue)
@@ -103,7 +119,12 @@ func Loader(filepath string) chan string {
 
 		fileScanner := bufio.NewScanner(readFile)
 		for fileScanner.Scan() {
-			taskQueue <- fileScanner.Text()
+			line := fileScanner.Text()
+			rank, domain, err := ParseLine(line)
+			if err != nil {
+				continue
+			}
+			taskQueue <- util.NewTask(rank, "", domain)
 			atomic.AddInt64(&common.NumScheduledTasks, 1)
 		}
 	}()
@@ -139,7 +160,7 @@ func prod() {
 }
 
 func dev() {
-	util.CrawlAllSubdomains(model.Opts.Domain)
+	util.CrawlAllSubdomains(util.NewTask(-1, "", model.Opts.Domain))
 }
 
 func main() {
