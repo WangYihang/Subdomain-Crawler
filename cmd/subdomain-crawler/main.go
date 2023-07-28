@@ -143,9 +143,5 @@ func dev() {
 }
 
 func main() {
-	if model.Opts.Domain != "" {
-		dev()
-	} else {
-		prod()
-	}
+	prod()
 }

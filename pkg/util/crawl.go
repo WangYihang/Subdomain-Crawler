@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/common"
@@ -151,7 +152,7 @@ func StringSliceToChan(s []string) chan string {
 	return out
 }
 
-func Worker(tasks chan Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix string) chan Result {
+func Worker(tasks chan Task, numScheduled *int64, numMaxSubdomains int64, scheduled *sync.Map, wg *sync.WaitGroup, suffix string) chan Result {
 	results := make(chan Result)
 	go func() {
 		defer close(results)
@@ -162,8 +163,11 @@ func Worker(tasks chan Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix str
 				for _, subdomain := range subdomains {
 					if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
 						for url := range DomainToURLConverter(subdomain) {
-							wg.Add(1)
-							tasks <- NewTask(url, subdomain)
+							if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
+								wg.Add(1)
+								tasks <- NewTask(url, subdomain)
+								atomic.AddInt64(numScheduled, 1)
+							}
 						}
 					}
 				}
@@ -174,18 +178,19 @@ func Worker(tasks chan Task, scheduled *sync.Map, wg *sync.WaitGroup, suffix str
 	return results
 }
 
-func Loader(domain string, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
-	tasksSlice := []Task{}
-	for domain := range ExpandSubdomains(domain) {
-		for url := range DomainToURLConverter(domain) {
-			tasksSlice = append(tasksSlice, NewTask(url, domain))
+func Loader(domain string, numScheduled *int64, numMaxSubdomains int64, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
+	tasks := make(chan Task, numMaxSubdomains)
+	for subdomain := range ExpandSubdomains(domain) {
+		if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
+			for url := range DomainToURLConverter(subdomain) {
+				if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
+					wg.Add(1)
+					tasks <- NewTask(url, subdomain)
+					atomic.AddInt64(numScheduled, 1)
+				}
+			}
 		}
-	}
-	tasks := make(chan Task, 8192)
-	for _, task := range tasksSlice {
-		wg.Add(1)
-		tasks <- task
-		scheduled.Store(task.Domain, true)
+
 	}
 	return tasks
 }
@@ -241,16 +246,17 @@ func Sha1Hash(data string) string {
 
 // CrawlAllSubdomains crawls all subdomains of domain
 func CrawlAllSubdomains(domain string) {
+	var numScheduled, numMaxSubdomains int64 = 0, 1024
 	results := []chan Result{}
 	scheduled := &sync.Map{}
 	wg := &sync.WaitGroup{}
-	tasks := Loader(domain, wg, scheduled)
+	tasks := Loader(domain, &numScheduled, numMaxSubdomains, wg, scheduled)
 	go func() {
 		wg.Wait()
 		close(tasks)
 	}()
 	for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
-		results = append(results, Worker(tasks, scheduled, wg, domain))
+		results = append(results, Worker(tasks, &numScheduled, numMaxSubdomains, scheduled, wg, domain))
 	}
 	hash := Sha1Hash(domain)
 	path := filepath.Join(model.Opts.OutputFolder, fmt.Sprintf("%s/%s/%s.json", hash[0:2], hash[2:4], domain))
