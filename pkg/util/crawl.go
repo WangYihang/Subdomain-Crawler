@@ -111,7 +111,7 @@ func Processer(task Task, suffix string) (result Result) {
 	}
 
 	// Send the HTTP request
-	response, err := common.HTTPClient.Do(request)
+	response, err := common.GetHTTPClient().Do(request)
 	if err != nil {
 		result.Error = err.Error()
 		return
@@ -193,7 +193,6 @@ func Loader(rank int, domain string, numScheduled *int64, numMaxSubdomains int64
 				}
 			}
 		}
-
 	}
 	return tasks
 }

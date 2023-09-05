@@ -176,10 +176,7 @@ func ExtractDomains(body io.ReadCloser) chan string {
 			}
 		}
 		// Check length of domain
-		if len(domain) > 253 {
-			return false
-		}
-		return true
+		return len(domain) <= 253
 	}
 	go func() {
 		defer close(out)

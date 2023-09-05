@@ -2,12 +2,9 @@ package main
 
 import (
 	"bufio"
-	"crypto/tls"
 	"fmt"
-	"io"
 	"log"
 	"math"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -35,29 +32,6 @@ func init() {
 		fmt.Println(common.PV.String())
 		os.Exit(0)
 	}
-
-	// Init HTTP client
-	timeout := model.Opts.Timeout
-	transport := http.Transport{
-		Dial: (&net.Dialer{
-			// Modify the time to wait for a connection to establish
-			Timeout:   time.Duration(timeout) * time.Second,
-			KeepAlive: time.Duration(timeout) * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout:   time.Duration(timeout) * time.Second,
-		IdleConnTimeout:       time.Duration(timeout) * time.Second,
-		ResponseHeaderTimeout: time.Duration(timeout) * time.Second,
-		ExpectContinueTimeout: time.Duration(timeout) * time.Second,
-		DisableKeepAlives:     true,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
-	common.HTTPClient = &http.Client{
-		Transport: &transport,
-		Timeout:   time.Duration(timeout) * time.Second,
-	}
-	log.SetOutput(io.Discard)
 
 	// Count all tasks
 	common.NumAllTasks = util.CountNumLines(model.Opts.InputFile)
