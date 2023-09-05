@@ -133,6 +133,7 @@ func (db *DomainBuilder) Len() int {
 	return db.index
 }
 
+// ExtractDomains extract domain name from the given reader
 func ExtractDomains(body io.ReadCloser) chan string {
 	out := make(chan string)
 	validHexCharChecker := func(ch byte) bool {
