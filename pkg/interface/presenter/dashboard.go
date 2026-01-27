@@ -33,7 +33,10 @@ func NewDashboard() *Dashboard {
 
 // Init initializes the dashboard
 func (d *Dashboard) Init() tea.Cmd {
-	return tickCmd()
+	return tea.Batch(
+		tickCmd(),
+		tea.EnterAltScreen,
+	)
 }
 
 // Update handles dashboard updates
@@ -51,6 +54,7 @@ func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return d, nil
 
 	case tickMsg:
+		// Continue ticking to keep the display updating
 		return d, tickCmd()
 	}
 
