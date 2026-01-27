@@ -53,9 +53,21 @@ func NewFilter(suffix string) *Filter {
 
 // Filter filters by suffix
 func (f *Filter) Filter(domains []string) []string {
+	return FilterBySuffix(domains, f.suffix)
+}
+
+// FilterBySuffix keeps only domains that equal suffix or are subdomains of suffix
+// (i.e. domain == suffix or domain ends with "."+suffix).
+// When suffix is empty, returns empty list to avoid matching everything.
+func FilterBySuffix(domains []string, suffix string) []string {
+	if suffix == "" {
+		return nil
+	}
+	suffix = strings.ToLower(strings.TrimSpace(suffix))
 	var result []string
 	for _, domain := range domains {
-		if strings.HasSuffix(domain, f.suffix) {
+		d := strings.ToLower(strings.TrimSpace(domain))
+		if d == suffix || strings.HasSuffix(d, "."+suffix) {
 			result = append(result, domain)
 		}
 	}

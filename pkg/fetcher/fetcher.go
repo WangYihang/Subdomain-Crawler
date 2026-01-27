@@ -106,7 +106,7 @@ func (f *Fetcher) fetchURL(url string, result *Result) error {
 		return err
 	}
 
-	filtered := f.filter.Filter(domains)
+	filtered := extract.FilterBySuffix(domains, result.Root)
 	sanitized := make([]string, len(filtered))
 	for i, d := range filtered {
 		sanitized[i] = f.sanitizer.Sanitize(d)
