@@ -6,11 +6,11 @@ import (
 	"strings"
 )
 
-// CountNumLines counts the number of lines in a file
-func CountNumLines(filepath string) int64 {
+// CountLines counts the number of lines in a file
+func CountLines(filepath string) (int64, error) {
 	file, err := os.Open(filepath)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	defer file.Close()
 
@@ -22,5 +22,5 @@ func CountNumLines(filepath string) int64 {
 		}
 		lines++
 	}
-	return lines
+	return lines, nil
 }

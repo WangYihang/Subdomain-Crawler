@@ -4,7 +4,6 @@ go 1.24.0
 
 require (
 	github.com/WangYihang/gojob v0.0.11-0.20240910061806-66ed0ba94af3
-	github.com/WangYihang/uio v0.0.0-20240910061712-086a0337cd43
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/ts v0.0.0-20171002115256-78ecb04241c0
 	github.com/prometheus/client_golang v1.23.2
@@ -13,6 +12,7 @@ require (
 
 require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
+	github.com/WangYihang/uio v0.0.0-20240910061712-086a0337cd43 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/caarlos0/env v3.5.0+incompatible // indirect

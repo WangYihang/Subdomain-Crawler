@@ -17,7 +17,6 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/pkg/model"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/util"
 	"github.com/WangYihang/gojob"
-	"github.com/WangYihang/uio"
 	"github.com/jessevdk/go-flags"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
@@ -53,12 +52,12 @@ func init() {
 			),
 		),
 	)
-	common.Progress.UpdateBarPriority(common.Bar, math.MaxInt)
+	common.Progress.UpdateBarPriority(common.Bar, math.MaxInt, false)
 
-	EnableObservablity()
+	EnableObservability()
 }
 
-func EnableObservablity() {
+func EnableObservability() {
 	go util.PrometheusExporter()
 	go func() {
 		log.Println(http.ListenAndServe("localhost:36060", nil))
@@ -106,31 +105,28 @@ func Count(channel chan util.Task) int64 {
 }
 
 func main() {
-	// prod()
-	fd, err := uio.Open("input.txt")
+	var numTotalTasks int64
+	var err error
+
+	numTotalTasks, err = util.CountLines(model.Opts.InputFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	scanner := bufio.NewScanner(fd)
-	for scanner.Scan() {
-		domain := strings.TrimSpace(scanner.Text())
-		fmt.Println(domain)
-	}
 
-	var numTotalTasks int64 = Count(LoadTasks("input.txt"))
 	scheduler := gojob.New(
-		gojob.WithNumWorkers(8),
+		gojob.WithNumWorkers(model.Opts.NumWorkers),
 		gojob.WithMaxRetries(4),
-		gojob.WithMaxRuntimePerTaskSeconds(16),
+		gojob.WithMaxRuntimePerTaskSeconds(model.Opts.Timeout),
 		gojob.WithNumShards(4),
 		gojob.WithShard(0),
 		gojob.WithTotalTasks(numTotalTasks),
 		gojob.WithStatusFilePath("status.json"),
-		gojob.WithResultFilePath("result.json"),
+		gojob.WithResultFilePath(model.Opts.OutputFile),
 		gojob.WithMetadataFilePath("metadata.json"),
 	).
 		Start()
-	for task := range LoadTasks("input.txt") {
+
+	for task := range LoadTasks(model.Opts.InputFile) {
 		scheduler.Submit(task)
 	}
 	scheduler.Wait()
