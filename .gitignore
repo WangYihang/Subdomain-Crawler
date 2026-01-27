@@ -21,10 +21,10 @@
 go.work
 
 # Release files
-dist/
+/dist/
 
 # Output folder
-output/
+/output/
 
 # Debug binaries
 __debug_bin
