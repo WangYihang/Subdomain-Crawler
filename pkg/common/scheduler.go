@@ -61,7 +61,9 @@ type Scheduler struct {
 	ProgressBar progress.Model
 
 	// Graceful shutdown
-	stopChan chan struct{}
+	stopChan     chan struct{}
+	queueClosed  sync.Once
+	resultClosed sync.Once
 }
 
 // JobResult represents the result of processing a job
@@ -166,6 +168,9 @@ func (s *Scheduler) EnqueueJob(domain, root string, depth int) bool {
 		s.TotalQueued++
 		s.mu.Unlock()
 		return true
+	case <-s.stopChan:
+		// Shutdown signal received, don't enqueue
+		return false
 	default:
 		// Queue is full, try to enqueue with timeout
 		timer := time.NewTimer(time.Second)
@@ -177,6 +182,10 @@ func (s *Scheduler) EnqueueJob(domain, root string, depth int) bool {
 			s.mu.Unlock()
 			return true
 		case <-timer.C:
+			return false
+		case <-s.stopChan:
+			// Shutdown signal received, don't enqueue
+			timer.Stop()
 			return false
 		}
 	}
@@ -225,14 +234,22 @@ func (s *Scheduler) Start(initialDomains []string) error {
 		fmt.Fprintf(os.Stderr, "\n\nReceived signal: %v\n", sig)
 		fmt.Fprintf(os.Stderr, "Gracefully shutting down...\n")
 		close(s.stopChan)
+		// Close the job queue to wake up any blocked senders
+		s.queueClosed.Do(func() {
+			close(s.JobQueue)
+		})
 	}()
 
 	// Wait for all work to complete
 	s.wg.Wait()
 
 	// Clean up
-	close(s.JobQueue)
-	close(s.Results)
+	s.queueClosed.Do(func() {
+		close(s.JobQueue)
+	})
+	s.resultClosed.Do(func() {
+		close(s.Results)
+	})
 
 	// Print final statistics
 	s.printFinalStats()
