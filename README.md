@@ -5,7 +5,7 @@ A high-performance subdomain discovery tool built with Go.
 ## Installation
 
 ```bash
-go install github.com/WangYihang/Subdomain-Crawler/cmd/subdomain-crawler@latest
+go install github.com/WangYihang/Subdomain-Crawler/cmd/subdomain-crawler@main
 ```
 
 ## Usage
