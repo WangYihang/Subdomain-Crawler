@@ -48,14 +48,13 @@ type Config struct {
 	RealBloomFilterSize uint
 
 	// UI
-	ShowDashboard bool `long:"dashboard" description:"Show interactive TUI dashboard"`
+	NoDashboard bool `long:"no-dashboard" description:"Disable interactive TUI dashboard"`
 }
 
 // ParseFlags parses command line flags
 func ParseFlags() (*Config, error) {
 	cfg := &Config{
-		ExpandSLD:     true, // Default value that cannot be easily set via struct tag for boolean if we want it true by default
-		ShowDashboard: true,
+		ExpandSLD: true, // Default value that cannot be easily set via struct tag for boolean if we want it true by default
 	}
 
 	parser := flags.NewParser(cfg, flags.Default)

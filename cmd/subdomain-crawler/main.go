@@ -45,7 +45,7 @@ func main() {
 	}()
 
 	// Setup dashboard if enabled
-	if config.ShowDashboard {
+	if !config.NoDashboard {
 		dashboard := presenter.NewDashboard()
 		useCase.RegisterMetricsObserver(dashboard)
 
