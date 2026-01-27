@@ -16,8 +16,8 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/pkg/common"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/model"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/util"
-	"github.com/WangYihang/gojob"
 	"github.com/jessevdk/go-flags"
+
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
 )
@@ -107,29 +107,7 @@ func Count(channel chan util.Task) int64 {
 }
 
 func main() {
-	var numTotalTasks int64
-	var err error
-
-	numTotalTasks, err = util.CountLines(model.Opts.Input)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	scheduler := gojob.New(
-		gojob.WithNumWorkers(model.Opts.NumWorkers),
-		gojob.WithMaxRetries(4),
-		gojob.WithMaxRuntimePerTaskSeconds(model.Opts.Timeout),
-		gojob.WithNumShards(4),
-		gojob.WithShard(0),
-		gojob.WithTotalTasks(numTotalTasks),
-		gojob.WithStatusFilePath(model.Opts.Status),
-		gojob.WithResultFilePath(model.Opts.Output),
-		gojob.WithMetadataFilePath(model.Opts.Metadata),
-	).
-		Start()
-
 	for task := range LoadTasks(model.Opts.Input) {
-		scheduler.Submit(task)
+		util.CrawlAllSubdomains(task)
 	}
-	scheduler.Wait()
 }

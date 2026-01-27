@@ -1,12 +1,18 @@
 package util
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/common"
+	"github.com/WangYihang/Subdomain-Crawler/pkg/model"
 )
 
 type Task struct {
@@ -138,67 +144,113 @@ func StringSliceToChan(s []string) chan string {
 	return out
 }
 
-// func Worker(tasks chan Task, numScheduled *int64, numMaxSubdomains int64, scheduled *sync.Map, wg *sync.WaitGroup, suffix string) chan Result {
-// 	results := make(chan Result)
-// 	go func() {
-// 		defer close(results)
-// 		for task := range tasks {
-// 			r := Processer(task, suffix)
-// 			results <- r
-// 			go func(subdomains []string) {
-// 				for _, subdomain := range subdomains {
-// 					if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
-// 						for url := range LoadUrlFromDomain(subdomain) {
-// 							if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
-// 								wg.Add(1)
-// 								tasks <- NewTask(url, subdomain)
-// 								atomic.AddInt64(numScheduled, 1)
-// 							}
-// 						}
-// 					}
-// 				}
-// 				wg.Done()
-// 			}(r.Subdomains)
-// 		}
-// 	}()
-// 	return results
-// }
+func Worker(tasks chan Task, numScheduled *int64, numMaxSubdomains int64, scheduled *sync.Map, wg *sync.WaitGroup, suffix string) chan Result {
+	results := make(chan Result)
+	go func() {
+		defer close(results)
+		for task := range tasks {
+			r := Processer(task, suffix)
+			results <- r
+			go func(subdomains []string) {
+				for _, subdomain := range subdomains {
+					if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
+						for url := range LoadUrlFromDomain(subdomain) {
+							if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
+								wg.Add(1)
+								tasks <- NewTask(url, subdomain)
+								atomic.AddInt64(numScheduled, 1)
+							}
+						}
+					}
+				}
+				wg.Done()
+			}(r.Subdomains)
+		}
+	}()
+	return results
+}
 
-// func Loader(domain string, numScheduled *int64, numMaxSubdomains int64, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
-// 	tasks := make(chan Task, numMaxSubdomains)
-// 	for subdomain := range ExpandSubdomains(domain) {
-// 		if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
-// 			for url := range LoadUrlFromDomain(subdomain) {
-// 				if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
-// 					wg.Add(1)
-// 					tasks <- NewTask(url, subdomain)
-// 					atomic.AddInt64(numScheduled, 1)
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return tasks
-// }
+func Loader(domain string, numScheduled *int64, numMaxSubdomains int64, wg *sync.WaitGroup, scheduled *sync.Map) chan Task {
+	tasks := make(chan Task, numMaxSubdomains)
+	for subdomain := range ExpandSubdomains(domain) {
+		if _, exists := scheduled.LoadOrStore(subdomain, true); !exists {
+			for url := range LoadUrlFromDomain(subdomain) {
+				if atomic.LoadInt64(numScheduled) < int64(numMaxSubdomains) {
+					wg.Add(1)
+					tasks <- NewTask(url, subdomain)
+					atomic.AddInt64(numScheduled, 1)
+				}
+			}
+		}
+	}
+	return tasks
+}
 
-// // CrawlAllSubdomains crawls all subdomains of domain
-// func CrawlAllSubdomains(task Task) {
-// 	// var numScheduled, numMaxSubdomains int64 = 0, 1024
-// 	// domain := task.Domain
-// 	// rank := task.Rank
-// 	// results := []chan Result{}
-// 	// scheduled := &sync.Map{}
-// 	// wg := &sync.WaitGroup{}
-// 	// tasks := Loader(rank, domain, &numScheduled, numMaxSubdomains, wg, scheduled)
-// 	// go func() {
-// 	// 	wg.Wait()
-// 	// 	close(tasks)
-// 	// }()
-// 	// for i := 0; i < model.Opts.NumGoroutinesPerWorker; i++ {
-// 	// 	results = append(results, Worker(tasks, &numScheduled, numMaxSubdomains, scheduled, wg, domain))
-// 	// }
-// 	// hash := Sha1Hash(domain)
-// 	// // path := filepath.Join(model.Opts.OutputFolder, fmt.Sprintf("%s/%s/%s.json", hash[0:2], hash[2:4], domain))
-// 	// count := Printer(path, Merger(results...))
-// 	// suffix := fmt.Sprintf("(%d) %s has %d subdomains", rank, domain, count)
-// 	// fmt.Println(suffix)
-// }
+// CrawlAllSubdomains crawls all subdomains of domain
+func CrawlAllSubdomains(task Task) {
+	var numScheduled, numMaxSubdomains int64 = 0, 1024
+	domain := task.Domain
+	// rank := task.Rank
+	results := []chan Result{}
+	scheduled := &sync.Map{}
+	wg := &sync.WaitGroup{}
+	tasks := Loader(domain, &numScheduled, numMaxSubdomains, wg, scheduled)
+	go func() {
+		wg.Wait()
+		close(tasks)
+	}()
+	for i := 0; i < model.Opts.NumWorkers; i++ {
+		results = append(results, Worker(tasks, &numScheduled, numMaxSubdomains, scheduled, wg, domain))
+	}
+	// hash := Sha1Hash(domain)
+	// count := Printer(path, Merger(results...))
+	count := Printer(model.Opts.Output, Merger(results...))
+	suffix := fmt.Sprintf("%s has %d subdomains", domain, count)
+	fmt.Println(suffix)
+}
+
+func Sha1Hash(data string) string {
+	h := sha1.New()
+	h.Write([]byte(data))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func Merger(cs ...chan Result) chan Result {
+	out := make(chan Result)
+	var wg sync.WaitGroup
+	wg.Add(len(cs))
+	for _, c := range cs {
+		go func(c chan Result) {
+			for v := range c {
+				out <- v
+			}
+			wg.Done()
+		}(c)
+	}
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+	return out
+}
+
+func Printer(path string, in chan Result) int64 {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return 0
+	}
+	defer f.Close()
+
+	var count int64 = 0
+	for result := range in {
+		count++
+		b, err := json.Marshal(result)
+		if err != nil {
+			continue
+		}
+		f.Write(b)
+		f.WriteString("\n")
+	}
+	return count
+}
