@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"net/http"
@@ -17,6 +16,8 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/pkg/common"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/model"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/util"
+	"github.com/WangYihang/gojob"
+	"github.com/WangYihang/uio"
 	"github.com/jessevdk/go-flags"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
@@ -33,13 +34,10 @@ func init() {
 		os.Exit(0)
 	}
 
-	// Count all tasks
-	common.NumAllTasks = util.CountNumLines(model.Opts.InputFile)
-
 	// Init progress bar
 	common.Progress = mpb.New(
 		mpb.WithWaitGroup(nil),
-		mpb.WithRefreshRate(500*time.Millisecond),
+		mpb.WithRefreshRate(time.Second),
 	)
 	common.Bar = common.Progress.AddBar(
 		int64(common.NumAllTasks),
@@ -57,12 +55,14 @@ func init() {
 	)
 	common.Progress.UpdateBarPriority(common.Bar, math.MaxInt)
 
-	if model.Opts.Debug {
-		go util.PrometheusExporter()
-		go func() {
-			log.Println(http.ListenAndServe("localhost:36060", nil))
-		}()
-	}
+	EnableObservablity()
+}
+
+func EnableObservablity() {
+	go util.PrometheusExporter()
+	go func() {
+		log.Println(http.ListenAndServe("localhost:36060", nil))
+	}()
 }
 
 func ParseLine(line string) (int, string, error) {
@@ -79,64 +79,59 @@ func ParseLine(line string) (int, string, error) {
 	return rank, domain, nil
 }
 
-func Loader(filepath string) chan util.Task {
-	taskQueue := make(chan util.Task)
-
+func LoadTasks(filepath string) chan util.Task {
+	out := make(chan util.Task)
 	go func() {
-		defer close(taskQueue)
-
-		readFile, err := os.Open(filepath)
+		defer close(out)
+		fd, err := os.Open(filepath)
 		if err != nil {
-			panic(err)
+			return
 		}
-		defer readFile.Close()
-
-		fileScanner := bufio.NewScanner(readFile)
-		for fileScanner.Scan() {
-			line := fileScanner.Text()
-			rank, domain, err := ParseLine(line)
-			if err != nil {
-				continue
-			}
-			taskQueue <- util.NewTask(rank, "", domain)
-			atomic.AddInt64(&common.NumScheduledTasks, 1)
+		defer fd.Close()
+		scanner := bufio.NewScanner(fd)
+		for scanner.Scan() {
+			domain := strings.TrimSpace(scanner.Text())
+			out <- util.NewTask("", domain)
 		}
 	}()
-
-	return taskQueue
+	return out
 }
 
-func prod() {
-	tasks := Loader(model.Opts.InputFile)
-	stop := make(chan bool)
-
-	for i := 0; i < model.Opts.NumWorkers; i++ {
-		go func() {
-			var startTime time.Time
-			for task := range tasks {
-				startTime = time.Now()
-				util.CrawlAllSubdomains(task)
-				common.Bar.EwmaIncrInt64(1, time.Since(startTime))
-			}
-			stop <- true
-		}()
+func Count(channel chan util.Task) int64 {
+	count := int64(0)
+	for range channel {
+		count++
 	}
-
-	for i := 0; i < model.Opts.NumWorkers; i++ {
-		<-stop
-	}
-
-	// Set total number of tasks to trigger progress bar completion
-	common.Bar.SetTotal(common.NumAllTasks, true)
-
-	// Wait for progress bar to finish
-	common.Progress.Wait()
-}
-
-func dev() {
-	util.CrawlAllSubdomains(util.NewTask(-1, "", model.Opts.Domain))
+	return count
 }
 
 func main() {
-	prod()
+	// prod()
+	fd, err := uio.Open("input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(fd)
+	for scanner.Scan() {
+		domain := strings.TrimSpace(scanner.Text())
+		fmt.Println(domain)
+	}
+
+	var numTotalTasks int64 = Count(LoadTasks("input.txt"))
+	scheduler := gojob.New(
+		gojob.WithNumWorkers(8),
+		gojob.WithMaxRetries(4),
+		gojob.WithMaxRuntimePerTaskSeconds(16),
+		gojob.WithNumShards(4),
+		gojob.WithShard(0),
+		gojob.WithTotalTasks(numTotalTasks),
+		gojob.WithStatusFilePath("status.json"),
+		gojob.WithResultFilePath("result.json"),
+		gojob.WithMetadataFilePath("metadata.json"),
+	).
+		Start()
+	for task := range LoadTasks("input.txt") {
+		scheduler.Submit(task)
+	}
+	scheduler.Wait()
 }
