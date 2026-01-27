@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/entity"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/repository"
@@ -112,12 +113,12 @@ func (w *Worker) processTask(task *entity.Task) {
 
 			crawlResult = &entity.CrawlResult{
 				Domain:        task.Domain.Name,
-				Root:          task.Domain.Root,
-				Protocol:      protocol,
+				Status:        resp.Message.Response.Status,
 				StatusCode:    resp.StatusCode,
 				Title:         title,
 				ContentLength: resp.ContentLength,
 				Subdomains:    filtered,
+				Timestamp:     time.Now(),
 			}
 			break // Success, no need to try other protocols
 		}

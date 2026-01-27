@@ -137,7 +137,6 @@ func TestResultQueue_Basic(t *testing.T) {
 
 	result := &entity.CrawlResult{
 		Domain: "example.com",
-		Root:   "example.com",
 	}
 
 	// Send
@@ -159,7 +158,6 @@ func TestResultQueue_Close(t *testing.T) {
 
 	result := &entity.CrawlResult{
 		Domain: "example.com",
-		Root:   "example.com",
 	}
 	queue.Send(result)
 

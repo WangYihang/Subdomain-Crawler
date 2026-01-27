@@ -54,15 +54,14 @@ func TestTask_Creation(t *testing.T) {
 func TestCrawlResult_Creation(t *testing.T) {
 	result := CrawlResult{
 		Domain:        "www.example.com",
-		Root:          "example.com",
-		Protocol:      "https",
+		Status:        "200 OK",
 		StatusCode:    200,
 		Title:         "Example Domain",
 		ContentLength: 1234,
 		Subdomains:    []string{"api.example.com", "blog.example.com"},
 		IPs:           []string{"93.184.216.34"},
 		Error:         "",
-		CrawledAt:     time.Now(),
+		Timestamp:     time.Now(),
 	}
 
 	if result.StatusCode != 200 {

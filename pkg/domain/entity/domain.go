@@ -18,16 +18,15 @@ type Task struct {
 
 // CrawlResult represents the result of crawling a domain
 type CrawlResult struct {
-	Domain        string
-	Root          string
-	Protocol      string
-	StatusCode    int
-	Title         string
-	ContentLength int
-	Subdomains    []string
-	IPs           []string
-	Error         string
-	CrawledAt     time.Time
+	Domain        string    `json:"domain"`
+	IPs           []string  `json:"ips"`
+	Subdomains    []string  `json:"subdomains"`
+	Status        string    `json:"status"`
+	StatusCode    int       `json:"status_code"`
+	Title         string    `json:"title"`
+	ContentLength int       `json:"content_length"`
+	Error         string    `json:"error,omitempty"`
+	Timestamp     time.Time `json:"timestamp"`
 }
 
 // DNSRecord represents a DNS resolution record
