@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/entity"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/service"
 )
 
@@ -50,9 +51,32 @@ func (f *Fetcher) Fetch(url string) (*service.HTTPResponse, error) {
 
 	req.Header.Set("User-Agent", f.userAgent)
 
+	// Read request body (usually empty for GET)
+	var reqBody string
+	if req.Body != nil {
+		bodyBytes, _ := io.ReadAll(req.Body)
+		reqBody = string(bodyBytes)
+		req.Body = io.NopCloser(strings.NewReader(reqBody))
+	}
+
+	// Prepare HTTPMessage
+	httpMsg := &entity.HTTPMessage{
+		Request: &entity.HTTPRequest{
+			Method:        req.Method,
+			URL:           req.URL.String(),
+			Proto:         req.Proto,
+			Header:        make(map[string]string),
+			Body:          reqBody,
+			ContentLength: req.ContentLength,
+		},
+	}
+	for k, v := range req.Header {
+		httpMsg.Request.Header[k] = strings.Join(v, ", ")
+	}
+
 	resp, err := f.client.Do(req)
 	if err != nil {
-		return &service.HTTPResponse{URL: url, Error: err.Error()}, err
+		return &service.HTTPResponse{URL: url, Error: err.Error(), Message: httpMsg}, err
 	}
 	defer resp.Body.Close()
 
@@ -60,23 +84,37 @@ func (f *Fetcher) Fetch(url string) (*service.HTTPResponse, error) {
 	limitedReader := io.LimitReader(resp.Body, f.maxResponseSize)
 	body, err := io.ReadAll(limitedReader)
 	if err != nil {
+		// Even if reading body fails, we might want to return what we have
 		return &service.HTTPResponse{
 			URL:        url,
 			StatusCode: resp.StatusCode,
 			Error:      err.Error(),
+			Message:    httpMsg,
 		}, err
 	}
+	bodyStr := string(body)
 
 	headers := make(map[string]string)
 	for key, values := range resp.Header {
 		headers[key] = strings.Join(values, ", ")
 	}
 
+	// Populate response part of HTTPMessage
+	httpMsg.Response = &entity.HTTPResponse{
+		Proto:         resp.Proto,
+		StatusCode:    resp.StatusCode,
+		Status:        resp.Status,
+		Header:        headers,
+		Body:          bodyStr,
+		ContentLength: resp.ContentLength,
+	}
+
 	return &service.HTTPResponse{
 		URL:           url,
 		StatusCode:    resp.StatusCode,
 		Headers:       headers,
-		Body:          string(body),
+		Body:          bodyStr,
 		ContentLength: len(body),
+		Message:       httpMsg,
 	}, nil
 }

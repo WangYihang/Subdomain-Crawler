@@ -1,5 +1,7 @@
 package service
 
+import "github.com/WangYihang/Subdomain-Crawler/pkg/domain/entity"
+
 // DomainValidator validates domain names
 type DomainValidator interface {
 	// IsValid checks if a domain name is valid
@@ -46,6 +48,7 @@ type HTTPResponse struct {
 	Body          string
 	ContentLength int
 	Error         string
+	Message       *entity.HTTPMessage
 }
 
 // DNSResolver resolves domain names
@@ -68,6 +71,7 @@ type DNSResolution struct {
 	ResponseAt  int64
 	RawRequest  string
 	RawResponse string
+	Message     *entity.DNSMessage
 }
 
 // DNSRecord represents a DNS record

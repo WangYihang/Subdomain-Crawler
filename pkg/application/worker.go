@@ -93,11 +93,7 @@ func (w *Worker) processTask(task *entity.Task) {
 		w.useCase.incrementHTTPRequests(success)
 
 		// Log HTTP request
-		w.logWriter.WriteHTTPLog(map[string]any{
-			"url":         url,
-			"status_code": resp.StatusCode,
-			"error":       err,
-		})
+		w.logWriter.WriteHTTPLog(resp.Message)
 
 		if err != nil {
 			w.useCase.incrementErrorCount()
@@ -187,13 +183,7 @@ func (w *Worker) resolveDNS(domain string) ([]string, error) {
 	}
 
 	// Log DNS query
-	w.logWriter.WriteDNSLog(map[string]any{
-		"domain": domain,
-		"ips":    resolution.IPs,
-		"server": resolution.Server,
-		"rtt_ms": resolution.RTTMs,
-		"error":  resolution.Error,
-	})
+	w.logWriter.WriteDNSLog(resolution.Message)
 
 	return resolution.IPs, nil
 }

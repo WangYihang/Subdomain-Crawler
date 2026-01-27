@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/entity"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/service"
 	"github.com/miekg/dns"
 )
@@ -112,6 +113,19 @@ func (r *Resolver) ResolveWithDetails(domain string) (*service.DNSResolution, er
 		}
 	}
 
+	// Prepare DNS Message
+	dnsMsg := &entity.DNSMessage{
+		Domain:   domain,
+		Server:   usedServer,
+		Request:  toDNSDetail(msg),
+		Response: toDNSDetail(response),
+		RTT:      rtt.Milliseconds(),
+		Error:    "",
+	}
+	if lastErr != nil {
+		dnsMsg.Error = lastErr.Error()
+	}
+
 	return &service.DNSResolution{
 		Domain:      domain,
 		IPs:         ips,
@@ -122,5 +136,53 @@ func (r *Resolver) ResolveWithDetails(domain string) (*service.DNSResolution, er
 		ResponseAt:  responseAt.UnixMilli(),
 		RawRequest:  msg.String(),
 		RawResponse: response.String(),
+		Message:     dnsMsg,
 	}, nil
+}
+
+func toDNSDetail(msg *dns.Msg) *entity.DNSDetail {
+	if msg == nil {
+		return nil
+	}
+	detail := &entity.DNSDetail{
+		ID:       msg.Id,
+		Response: msg.Response,
+		Opcode:   msg.Opcode,
+		Rcode:    msg.Rcode,
+		Question: make([]entity.DNSQuestion, len(msg.Question)),
+		Answer:   make([]entity.DNSRR, len(msg.Answer)),
+		Nv:       make([]entity.DNSRR, len(msg.Ns)),
+		Extra:    make([]entity.DNSRR, len(msg.Extra)),
+	}
+
+	for i, q := range msg.Question {
+		detail.Question[i] = entity.DNSQuestion{
+			Name:   q.Name,
+			Qtype:  dns.TypeToString[q.Qtype],
+			Qclass: dns.ClassToString[q.Qclass],
+		}
+	}
+
+	for i, rr := range msg.Answer {
+		detail.Answer[i] = toDNSRR(rr)
+	}
+	for i, rr := range msg.Ns {
+		detail.Nv[i] = toDNSRR(rr)
+	}
+	for i, rr := range msg.Extra {
+		detail.Extra[i] = toDNSRR(rr)
+	}
+
+	return detail
+}
+
+func toDNSRR(rr dns.RR) entity.DNSRR {
+	header := rr.Header()
+	return entity.DNSRR{
+		Name:  header.Name,
+		Type:  dns.TypeToString[header.Rrtype],
+		Class: dns.ClassToString[header.Class],
+		TTL:   header.Ttl,
+		Data:  rr.String(), // Using String() representation for data as generic fallback
+	}
 }
