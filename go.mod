@@ -6,6 +6,7 @@ require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.1
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/jessevdk/go-flags v1.6.1
 	github.com/miekg/dns v1.1.72
 	golang.org/x/net v0.49.0
 )

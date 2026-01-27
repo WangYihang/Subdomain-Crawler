@@ -42,7 +42,7 @@ func (a *Assembler) AssembleUseCase() (*application.CrawlUseCase, error) {
 
 	// Create HTTP fetcher
 	fetcher := http.NewFetcher(http.Config{
-		Timeout:         a.config.HTTPTimeout,
+		Timeout:         a.config.HTTPTimeoutDuration,
 		MaxResponseSize: a.config.MaxResponseSize,
 		UserAgent:       a.config.UserAgent,
 	})
@@ -50,12 +50,12 @@ func (a *Assembler) AssembleUseCase() (*application.CrawlUseCase, error) {
 	// Create DNS resolver
 	resolver := dns.NewResolver(dns.Config{
 		Servers: a.config.DNSServers,
-		Timeout: a.config.DNSTimeout,
+		Timeout: a.config.DNSTimeoutDuration,
 	})
 
 	// Create repositories
 	filter := storage.NewBloomFilter(storage.Config{
-		Size:              a.config.BloomFilterSize,
+		Size:              a.config.RealBloomFilterSize,
 		FalsePositiveRate: a.config.BloomFilterFP,
 	})
 
