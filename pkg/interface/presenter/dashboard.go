@@ -102,11 +102,30 @@ func (d *Dashboard) renderHeader() string {
 		Foreground(lipgloss.Color("#7D56F4")).
 		Padding(0, 1)
 
-	elapsed := time.Since(d.startTime).Round(time.Second)
+	timeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#999999"))
 
-	return titleStyle.Render(
-		"🔍 Subdomain Crawler - Running for " + elapsed.String(),
-	)
+	elapsed := time.Since(d.startTime)
+	hours := int(elapsed.Hours())
+	minutes := int(elapsed.Minutes()) % 60
+	seconds := int(elapsed.Seconds()) % 60
+
+	var timeStr string
+	if hours > 0 {
+		timeStr = fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	} else if minutes > 0 {
+		timeStr = fmt.Sprintf("%dm %ds", minutes, seconds)
+	} else {
+		timeStr = fmt.Sprintf("%ds", seconds)
+	}
+
+	// Current time for reference
+	now := time.Now().Format("15:04:05")
+
+	title := titleStyle.Render("🔍 Subdomain Crawler")
+	timeInfo := timeStyle.Render(fmt.Sprintf(" Running: %s | Time: %s", timeStr, now))
+
+	return title + timeInfo
 }
 
 func (d *Dashboard) renderGeneralStats() string {
