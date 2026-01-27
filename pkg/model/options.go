@@ -5,8 +5,10 @@ var Opts Options
 
 // IOOptions is the options for input and output
 type IOOptions struct {
-	InputFile  string `short:"i" long:"input-file" description:"The input file" required:"true" default:"input.txt"`
-	OutputFile string `short:"o" long:"output-file" description:"The output file" required:"true" default:"output.jsonl"`
+	Input    string `short:"i" long:"input" description:"The input file path" required:"true" default:"input.txt"`
+	Output   string `short:"o" long:"output" description:"The output file path" required:"true" default:"output.jsonl"`
+	Status   string `short:"s" long:"status" description:"The status file path" default:"status.jsonl"`
+	Metadata string `short:"m" long:"metadata" description:"The metadata file path" default:"metadata.jsonl"`
 }
 
 // Options is the options for the program

@@ -1,6 +1,6 @@
 module github.com/WangYihang/Subdomain-Crawler
 
-go 1.24.0
+go 1.24.12
 
 require (
 	github.com/WangYihang/gojob v0.0.11-0.20240910061806-66ed0ba94af3

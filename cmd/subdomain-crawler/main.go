@@ -108,7 +108,7 @@ func main() {
 	var numTotalTasks int64
 	var err error
 
-	numTotalTasks, err = util.CountLines(model.Opts.InputFile)
+	numTotalTasks, err = util.CountLines(model.Opts.Input)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -120,13 +120,13 @@ func main() {
 		gojob.WithNumShards(4),
 		gojob.WithShard(0),
 		gojob.WithTotalTasks(numTotalTasks),
-		gojob.WithStatusFilePath("status.json"),
-		gojob.WithResultFilePath(model.Opts.OutputFile),
-		gojob.WithMetadataFilePath("metadata.json"),
+		gojob.WithStatusFilePath(model.Opts.Status),
+		gojob.WithResultFilePath(model.Opts.Output),
+		gojob.WithMetadataFilePath(model.Opts.Metadata),
 	).
 		Start()
 
-	for task := range LoadTasks(model.Opts.InputFile) {
+	for task := range LoadTasks(model.Opts.Input) {
 		scheduler.Submit(task)
 	}
 	scheduler.Wait()
