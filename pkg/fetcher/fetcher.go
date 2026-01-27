@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,7 +12,49 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/pkg/output"
 )
 
-const httpLogBodyPreviewBytes = 4096
+// HTTPRequest represents a complete HTTP request for logging
+type HTTPRequest struct {
+	Method    string              `json:"method"`
+	URL       string              `json:"url"`
+	Host      string              `json:"host"`
+	Headers   map[string][]string `json:"headers"`
+	Body      string              `json:"body,omitempty"`
+	RequestAt int64               `json:"request_at"`
+	Timestamp string              `json:"timestamp"`
+}
+
+// TLSInfo represents TLS connection information
+type TLSInfo struct {
+	Version     string `json:"version"`
+	CipherSuite string `json:"cipher_suite"`
+	ServerName  string `json:"server_name"`
+	Negotiated  bool   `json:"negotiated"`
+}
+
+// HTTPResponse represents a complete HTTP response for logging
+type HTTPResponse struct {
+	Status         string              `json:"status"`
+	StatusCode     int                 `json:"status_code"`
+	Proto          string              `json:"proto"`
+	Headers        map[string][]string `json:"headers"`
+	ContentLength  int64               `json:"content_length"`
+	BodySize       int                 `json:"body_size"`
+	Body           string              `json:"body,omitempty"`
+	BodyTruncated  bool                `json:"body_truncated"`
+	Title          string              `json:"title,omitempty"`
+	TLS            bool                `json:"tls"`
+	TLSInfo        *TLSInfo            `json:"tls_info,omitempty"`
+	Error          string              `json:"error,omitempty"`
+	ResponseTimeMs int64               `json:"response_time_ms"`
+	ResponseAt     int64               `json:"response_at"`
+	Timestamp      string              `json:"timestamp"`
+}
+
+// HTTPLog represents a complete HTTP transaction log entry
+type HTTPLog struct {
+	Request  HTTPRequest  `json:"request"`
+	Response HTTPResponse `json:"response"`
+}
 
 // Result represents fetch result
 type Result struct {
@@ -96,58 +139,135 @@ func headersToMap(h http.Header) map[string][]string {
 	return m
 }
 
+// getTLSVersion returns TLS version as string.
+func getTLSVersion(version uint16) string {
+	switch version {
+	case tls.VersionTLS10:
+		return "TLS 1.0"
+	case tls.VersionTLS11:
+		return "TLS 1.1"
+	case tls.VersionTLS12:
+		return "TLS 1.2"
+	case tls.VersionTLS13:
+		return "TLS 1.3"
+	default:
+		return fmt.Sprintf("Unknown(0x%04x)", version)
+	}
+}
+
+// getTLSCipherSuite returns cipher suite as string.
+func getTLSCipherSuite(suite uint16) string {
+	// Common cipher suites
+	cipherSuites := map[uint16]string{
+		tls.TLS_RSA_WITH_RC4_128_SHA:                      "TLS_RSA_WITH_RC4_128_SHA",
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA:                 "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA:                  "TLS_RSA_WITH_AES_128_CBC_SHA",
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA:                  "TLS_RSA_WITH_AES_256_CBC_SHA",
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256:               "TLS_RSA_WITH_AES_128_CBC_SHA256",
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256:               "TLS_RSA_WITH_AES_128_GCM_SHA256",
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384:               "TLS_RSA_WITH_AES_256_GCM_SHA384",
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA:              "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA",
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:          "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:          "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA:                "TLS_ECDHE_RSA_WITH_RC4_128_SHA",
+		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA:           "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:       "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:         "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:         "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:       "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:         "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:       "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:   "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+		tls.TLS_AES_128_GCM_SHA256:                        "TLS_AES_128_GCM_SHA256",
+		tls.TLS_AES_256_GCM_SHA384:                        "TLS_AES_256_GCM_SHA384",
+		tls.TLS_CHACHA20_POLY1305_SHA256:                  "TLS_CHACHA20_POLY1305_SHA256",
+	}
+	if name, ok := cipherSuites[suite]; ok {
+		return name
+	}
+	return fmt.Sprintf("Unknown(0x%04x)", suite)
+}
+
 func (f *Fetcher) writeHTTPLog(req *http.Request, url string, resp *http.Response, body []byte, result *Result, startTime time.Time) {
 	if f.httpLog == nil {
 		return
 	}
-	requestAt := startTime.UnixMilli()
-	responseAt := time.Now().UnixMilli()
+
+	requestAt := startTime
+	responseAt := time.Now()
 	durationMs := result.ResponseTime
 
-	reqLog := map[string]interface{}{
-		"method":     "GET",
-		"url":        url,
-		"request_at": requestAt,
-		"timestamp":  startTime.Format(time.RFC3339Nano),
+	// Build HTTP request log
+	httpReq := HTTPRequest{
+		Method:    "GET",
+		URL:       url,
+		RequestAt: requestAt.UnixMilli(),
+		Timestamp: requestAt.Format(time.RFC3339Nano),
 	}
 	if req != nil {
-		reqLog["method"] = req.Method
-		reqLog["url"] = req.URL.String()
-		reqLog["host"] = req.Host
-		reqLog["headers"] = headersToMap(req.Header)
+		httpReq.Method = req.Method
+		httpReq.URL = req.URL.String()
+		httpReq.Host = req.Host
+		httpReq.Headers = headersToMap(req.Header)
+		// Add request body if present (for POST, PUT, etc.)
+		if req.Body != nil && req.ContentLength > 0 {
+			// Note: In current implementation we only do GET requests,
+			// but this is here for future extensibility
+			httpReq.Body = "[body not captured for GET requests]"
+		}
 	} else {
-		reqLog["headers"] = map[string][]string(nil)
+		httpReq.Headers = make(map[string][]string)
 	}
 
-	respLog := map[string]interface{}{
-		"error":            result.Error,
-		"response_time_ms": durationMs,
-		"response_at":      responseAt,
-		"timestamp":        time.Now().Format(time.RFC3339Nano),
+	// Build HTTP response log
+	httpResp := HTTPResponse{
+		Error:          result.Error,
+		ResponseTimeMs: durationMs,
+		ResponseAt:     responseAt.UnixMilli(),
+		Timestamp:      responseAt.Format(time.RFC3339Nano),
 	}
+
 	if resp != nil {
-		respLog["status"] = resp.Status
-		respLog["status_code"] = resp.StatusCode
-		respLog["headers"] = headersToMap(resp.Header)
-		respLog["content_length"] = resp.ContentLength
-		respLog["title"] = result.Title
-	}
-	if body != nil {
-		respLog["body_size"] = len(body)
-		respLog["body_truncated"] = int64(len(body)) >= f.maxResponseSize
-		if len(body) > 0 {
-			preview := body
-			if len(preview) > httpLogBodyPreviewBytes {
-				preview = preview[:httpLogBodyPreviewBytes]
+		httpResp.Status = resp.Status
+		httpResp.StatusCode = resp.StatusCode
+		httpResp.Headers = headersToMap(resp.Header)
+		httpResp.ContentLength = resp.ContentLength
+		httpResp.Title = result.Title
+		httpResp.Proto = resp.Proto
+		httpResp.TLS = resp.TLS != nil
+
+		// Add TLS information if present
+		if resp.TLS != nil {
+			httpResp.TLSInfo = &TLSInfo{
+				Version:     getTLSVersion(resp.TLS.Version),
+				CipherSuite: getTLSCipherSuite(resp.TLS.CipherSuite),
+				ServerName:  resp.TLS.ServerName,
+				Negotiated:  resp.TLS.HandshakeComplete,
 			}
-			respLog["body_preview"] = string(preview)
 		}
 	}
 
-	_ = f.httpLog.Log(map[string]interface{}{
-		"request":  reqLog,
-		"response": respLog,
-	})
+	// Add body information
+	if body != nil {
+		httpResp.BodySize = len(body)
+		httpResp.BodyTruncated = int64(len(body)) >= f.maxResponseSize
+
+		if len(body) > 0 {
+			// Store complete body without any size limits
+			httpResp.Body = string(body)
+		}
+	}
+
+	// Create complete log entry
+	logEntry := HTTPLog{
+		Request:  httpReq,
+		Response: httpResp,
+	}
+
+	_ = f.httpLog.Log(logEntry)
 }
 
 // fetchURL fetches URL

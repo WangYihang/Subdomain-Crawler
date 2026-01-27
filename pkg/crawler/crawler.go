@@ -188,7 +188,7 @@ func (c *Crawler) runProgress(done <-chan struct{}, bar *progressbar.ProgressBar
 		case <-done:
 			return
 		case <-tick.C:
-			n := c.jobQueue.Len()
+			queueLen := c.jobQueue.Len()
 			var httpCount, dnsCount, uniqueCount int64
 			for _, w := range c.workers {
 				if w == nil {
@@ -199,10 +199,43 @@ func (c *Crawler) runProgress(done <-chan struct{}, bar *progressbar.ProgressBar
 				dnsCount += processed  // 1 DNS resolve per task
 				uniqueCount += found
 			}
-			desc := "Queue: " + strconv.Itoa(n) +
-				" | HTTP: " + strconv.FormatInt(httpCount, 10) +
+
+			// Count active workers (those currently processing tasks)
+			activeWorkers := 0
+			currentDomains := c.progress.snapshot()
+			activeWorkers = len(currentDomains)
+
+			// Build description with more detailed info
+			desc := "Queue: " + strconv.Itoa(queueLen)
+			if activeWorkers > 0 {
+				desc += " | Active: " + strconv.Itoa(activeWorkers) + "/" + strconv.Itoa(len(c.workers))
+			}
+			desc += " | HTTP: " + strconv.FormatInt(httpCount, 10) +
 				", DNS: " + strconv.FormatInt(dnsCount, 10) +
 				" | Unique: " + strconv.FormatInt(uniqueCount, 10)
+
+			// Show some active domains being processed
+			if len(currentDomains) > 0 {
+				desc += " | Processing: "
+				maxShow := 3
+				if len(currentDomains) > maxShow {
+					for i := 0; i < maxShow; i++ {
+						if i > 0 {
+							desc += ", "
+						}
+						desc += currentDomains[i]
+					}
+					desc += "..."
+				} else {
+					for i, d := range currentDomains {
+						if i > 0 {
+							desc += ", "
+						}
+						desc += d
+					}
+				}
+			}
+
 			bar.Describe(desc)
 		}
 	}

@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -125,39 +124,45 @@ func (w *Worker) processTask(task queue.Task) {
 	var ips []string
 	var dnsErr string
 	if w.resolver != nil {
-		reqAt := time.Now()
-		resolved, err := w.resolver.Resolve(task.Domain)
-		rttMs := time.Since(reqAt).Milliseconds()
-		if err != nil {
-			dnsErr = err.Error()
-		} else {
-			ips = resolved
+		dnsResult := w.resolver.ResolveDetailed(task.Domain)
+		ips = dnsResult.IPs
+		if dnsResult.Error != "" {
+			dnsErr = dnsResult.Error
 		}
 		if w.dnsLog != nil {
-			answers := make([]map[string]string, 0, len(ips))
-			for _, ipStr := range ips {
-				typ := "AAAA"
-				if ip := net.ParseIP(ipStr); ip != nil && ip.To4() != nil {
-					typ = "A"
-				}
-				answers = append(answers, map[string]string{"ip": ipStr, "type": typ})
+			// Build answers array
+			answers := make([]dns.DNSResponse, 0, len(dnsResult.Responses))
+			for _, resp := range dnsResult.Responses {
+				answers = append(answers, dns.DNSResponse{
+					Type:  resp.Type,
+					Value: resp.Value,
+					TTL:   resp.TTL,
+					Class: resp.Class,
+				})
 			}
-			_ = w.dnsLog.Log(map[string]interface{}{
-				"request": map[string]interface{}{
-					"domain":     task.Domain,
-					"types":      []string{"A", "AAAA"},
-					"request_at": reqAt.UnixMilli(),
-					"timestamp":  reqAt.Format(time.RFC3339Nano),
+
+			// Create complete DNS log entry
+			logEntry := dns.DNSLog{
+				Request: dns.DNSRequest{
+					Domain:    task.Domain,
+					Types:     dnsResult.RequestTypes,
+					RequestAt: dnsResult.RequestAt.UnixMilli(),
+					Timestamp: dnsResult.RequestAt.Format(time.RFC3339Nano),
 				},
-				"response": map[string]interface{}{
-					"answers":     answers,
-					"ips":         ips,
-					"error":       dnsErr,
-					"rtt_ms":      rttMs,
-					"response_at": time.Now().UnixMilli(),
-					"timestamp":   time.Now().Format(time.RFC3339Nano),
+				Response: dns.DNSResponseLog{
+					Answers:    answers,
+					IPs:        ips,
+					Error:      dnsErr,
+					RTTMs:      dnsResult.RTTMs,
+					ResponseAt: dnsResult.ResponseAt.UnixMilli(),
+					Timestamp:  dnsResult.ResponseAt.Format(time.RFC3339Nano),
+					DNSServer:  dnsResult.UsedServer,
 				},
-			})
+				RawRequest:  dnsResult.RawRequest,
+				RawResponse: dnsResult.RawResponse,
+			}
+
+			_ = w.dnsLog.Log(logEntry)
 		}
 	}
 
