@@ -6,7 +6,6 @@ require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.1
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/ts v0.0.0-20171002115256-78ecb04241c0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/vbauerster/mpb/v8 v8.11.3

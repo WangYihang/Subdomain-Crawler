@@ -1,63 +1,54 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"log"
 	"os"
-	"time"
 
-	"github.com/WangYihang/Subdomain-Crawler/pkg/common"
-	"github.com/WangYihang/Subdomain-Crawler/pkg/model"
-	"github.com/jessevdk/go-flags"
+	"github.com/WangYihang/Subdomain-Crawler/pkg/config"
+	"github.com/WangYihang/Subdomain-Crawler/pkg/crawler"
 )
 
+const version = "2.0.0"
+
 func main() {
-	// Parse command-line flags
-	_, err := flags.Parse(&model.Opts)
-	if err != nil {
-		os.Exit(1)
-	}
+	// Define command-line flags
+	inputFile := flag.String("i", "input.txt", "Input file containing root domains (one per line)")
+	outputFile := flag.String("o", "output.jsonl", "Output file for results")
+	timeout := flag.Int("t", 16, "HTTP request timeout in seconds")
+	numWorkers := flag.Int("n", 32, "Number of concurrent workers")
+	showVersion := flag.Bool("v", false, "Show version")
+
+	flag.Parse()
 
 	// Show version if requested
-	if model.Opts.Version {
-		fmt.Println(common.PV.String())
+	if *showVersion {
+		log.Printf("Subdomain Crawler v%s", version)
 		os.Exit(0)
 	}
 
-	// Load root domains from input file
-	rootDomains, err := common.LoadRootDomainsFromFile(model.Opts.InputFile)
-	if err != nil {
-		log.Fatalf("Failed to load root domains: %v", err)
-	}
-
-	if len(rootDomains) == 0 {
-		log.Fatalf("No root domains loaded from %s", model.Opts.InputFile)
-	}
-
-	log.Printf("Loaded %d root domains from %s", len(rootDomains), model.Opts.InputFile)
-	if model.Opts.Verbose {
-		for _, domain := range rootDomains {
-			log.Printf("  - %s", domain)
-		}
-	}
-
-	// Create scheduler with configuration
-	scheduler := common.NewScheduler(
-		model.Opts.Concurrency,
-		model.Opts.MaxDepth,
-		model.Opts.Concurrency*10, // Job queue size
-		time.Duration(model.Opts.Timeout)*time.Second,
-		model.Opts.Output,
+	// Create configuration
+	cfg := config.New(
+		*inputFile,
+		*outputFile,
+		*timeout,
+		*numWorkers,
+		1048576, // Bloom filter size
+		0.01,    // False positive rate
 	)
 
-	// Start the crawling process
-	log.Printf("Starting subdomain crawler with %d workers, max depth %d, timeout %ds",
-		model.Opts.Concurrency, model.Opts.MaxDepth, model.Opts.Timeout)
-
-	if err := scheduler.Start(rootDomains); err != nil {
-		log.Fatalf("Scheduler failed: %v", err)
+	// Create crawler
+	c, err := crawler.NewCrawler(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create crawler: %v", err)
 	}
 
-	log.Printf("Crawling completed. Processed: %d, Queued: %d",
-		scheduler.TotalProcessed, scheduler.TotalQueued)
+	log.Printf("Starting subdomain crawler with %d workers", cfg.Concurrency.NumWorkers)
+
+	// Start crawling
+	if err := c.Start(); err != nil {
+		log.Fatalf("Crawler failed: %v", err)
+	}
+
+	log.Printf("Crawling completed")
 }
