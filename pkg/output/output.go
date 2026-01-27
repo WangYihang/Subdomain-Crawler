@@ -47,15 +47,22 @@ func (w *Writer) WriteResult(result queue.Result) error {
 	if subdomains == nil {
 		subdomains = []string{}
 	}
-
-	output := map[string]interface{}{
-		"domain":     result.Domain,
-		"root":       result.Root,
-		"subdomains": subdomains,
-		"error":      result.Error,
+	ips := result.IPs
+	if ips == nil {
+		ips = []string{}
 	}
 
-	return w.encoder.Encode(output)
+	out := map[string]interface{}{
+		"domain":         result.Domain,
+		"root":           result.Root,
+		"subdomains":     subdomains,
+		"ips":            ips,
+		"title":          result.Title,
+		"content_length": result.ContentLength,
+		"error":          result.Error,
+	}
+
+	return w.encoder.Encode(out)
 }
 
 // Close closes writer (does not close stdout)

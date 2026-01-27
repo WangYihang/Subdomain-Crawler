@@ -9,6 +9,7 @@ import (
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/config"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/dedup"
+	"github.com/WangYihang/Subdomain-Crawler/pkg/dns"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/extract"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/fetcher"
@@ -28,6 +29,7 @@ type Crawler struct {
 	calculator  *domain.Calculator
 	scope       *domain.Scope
 	dedupFilter *dedup.Filter
+	dnsResolver *dns.Resolver
 	jobQueue    *queue.JobQueue
 	resultQueue *queue.ResultQueue
 	httpclient  *httpclient.Client
@@ -94,6 +96,8 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 	}
 	fetcherInstance := fetcher.NewFetcher(fetcherConfig)
 
+	dnsResolver := dns.NewResolver(cfg.HTTP.Timeout)
+
 	jobQueue := queue.NewJobQueue(cfg.Concurrency.QueueSize)
 	resultQueue := queue.NewResultQueue(cfg.Concurrency.QueueSize)
 
@@ -111,6 +115,7 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 		calculator:  calculator,
 		scope:       scope,
 		dedupFilter: dedupFilter,
+		dnsResolver: dnsResolver,
 		jobQueue:    jobQueue,
 		resultQueue: resultQueue,
 		httpclient:  httpClient,
@@ -138,6 +143,7 @@ func (c *Crawler) Start() error {
 			Jobs:       c.jobQueue,
 			Results:    c.resultQueue,
 			Fetcher:    c.fetcher,
+			Resolver:   c.dnsResolver,
 			Scope:      c.scope,
 			Calculator: c.calculator,
 			Dedup:      c.dedupFilter,

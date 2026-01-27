@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/dedup"
+	"github.com/WangYihang/Subdomain-Crawler/pkg/dns"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/fetcher"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/queue"
@@ -19,6 +20,7 @@ type Worker struct {
 	jobs            *queue.JobQueue
 	results         *queue.ResultQueue
 	fetcher         *fetcher.Fetcher
+	resolver        *dns.Resolver
 	scope           *domain.Scope
 	calculator      *domain.Calculator
 	dedup           *dedup.Filter
@@ -34,6 +36,7 @@ type Config struct {
 	Jobs       *queue.JobQueue
 	Results    *queue.ResultQueue
 	Fetcher    *fetcher.Fetcher
+	Resolver   *dns.Resolver
 	Scope      *domain.Scope
 	Calculator *domain.Calculator
 	Dedup      *dedup.Filter
@@ -47,6 +50,7 @@ func NewWorker(config *Config) *Worker {
 		jobs:       config.Jobs,
 		results:    config.Results,
 		fetcher:    config.Fetcher,
+		resolver:   config.Resolver,
 		scope:      config.Scope,
 		calculator: config.Calculator,
 		dedup:      config.Dedup,
@@ -100,11 +104,21 @@ func (w *Worker) processTask(task queue.Task) {
 
 	result.Subdomains = uniqueSubdomains
 
+	var ips []string
+	if w.resolver != nil {
+		if resolved, err := w.resolver.Resolve(task.Domain); err == nil {
+			ips = resolved
+		}
+	}
+
 	queueResult := queue.Result{
-		Domain:     result.Domain,
-		Root:       result.Root,
-		Subdomains: result.Subdomains,
-		Error:      result.Error,
+		Domain:        result.Domain,
+		Root:          result.Root,
+		Subdomains:    result.Subdomains,
+		IPs:           ips,
+		Title:         result.Title,
+		ContentLength: result.ContentLength,
+		Error:         result.Error,
 	}
 
 	w.results.Send(queueResult)

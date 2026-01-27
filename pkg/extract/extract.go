@@ -41,6 +41,18 @@ func (de *DomainExtractor) FromString(input string) []string {
 	return result
 }
 
+// titleRegex extracts <title>...</title> content (case-insensitive)
+var titleRegex = regexp.MustCompile(`(?i)<title[^>]*>\s*([^<]*)\s*</title>`)
+
+// ExtractTitle returns the first <title>...</title> content from HTML.
+func ExtractTitle(html string) string {
+	sub := titleRegex.FindStringSubmatch(html)
+	if len(sub) >= 2 {
+		return strings.TrimSpace(sub[1])
+	}
+	return ""
+}
+
 // Filter filters domains
 type Filter struct {
 	suffix string

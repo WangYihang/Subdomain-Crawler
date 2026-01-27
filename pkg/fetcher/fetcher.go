@@ -16,6 +16,7 @@ type Result struct {
 	Root               string
 	Subdomains         []string
 	Title              string
+	ContentLength      int64 // from HTTP header, -1 when unknown
 	ResponseStatusCode int
 	ResponseTime       int64
 	Error              string
@@ -96,16 +97,17 @@ func (f *Fetcher) fetchURL(url string, result *Result) error {
 
 	result.ResponseStatusCode = resp.StatusCode
 	result.ResponseTime = time.Since(startTime).Milliseconds()
+	result.ContentLength = resp.ContentLength
 
-	bodyReader := io.LimitReader(resp.Body, f.maxResponseSize)
-	bodyCloser := io.NopCloser(bodyReader)
-
-	domains, err := f.extractor.FromBody(bodyCloser)
-	if err != nil && err != io.EOF {
-		result.Error = fmt.Sprintf("extraction error: %v", err)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, f.maxResponseSize))
+	if err != nil {
+		result.Error = fmt.Sprintf("read body: %v", err)
 		return err
 	}
+	bodyStr := string(body)
+	result.Title = extract.ExtractTitle(bodyStr)
 
+	domains := f.extractor.FromString(bodyStr)
 	filtered := extract.FilterBySuffix(domains, result.Root)
 	sanitized := make([]string, len(filtered))
 	for i, d := range filtered {

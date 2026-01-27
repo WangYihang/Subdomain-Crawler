@@ -11,10 +11,13 @@ type Task struct {
 
 // Result represents work result
 type Result struct {
-	Domain     string
-	Root       string
-	Subdomains []string
-	Error      string
+	Domain        string
+	Root          string
+	Subdomains    []string
+	IPs           []string // DNS resolution result
+	Title         string   // from HTTP <title>
+	ContentLength int64    // from HTTP Content-Length, -1 when unknown
+	Error         string
 }
 
 // JobQueue manages tasks
