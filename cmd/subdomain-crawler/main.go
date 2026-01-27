@@ -30,6 +30,9 @@ func init() {
 
 	common.InitGlobalBloomFilter(model.Opts.BloomFilterSize, model.Opts.BloomFilterFalsePositive)
 
+	// Start periodic bloom filter save (once per minute)
+	common.BloomFilter.StartPeriodicSave(common.DefaultBloomFilterSessionFile, time.Minute)
+
 	if model.Opts.Version {
 		fmt.Println(common.PV.String())
 		os.Exit(0)
