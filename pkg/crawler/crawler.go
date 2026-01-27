@@ -3,6 +3,7 @@ package crawler
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/pkg/output"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/queue"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/worker"
+	"golang.org/x/net/publicsuffix"
 )
 
 // Crawler coordinates crawling
@@ -58,7 +60,22 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 		return nil, fmt.Errorf("no root domains loaded from %s", cfg.Input.File)
 	}
 
-	extractor := domain.NewExtractor(rootDomains)
+	// Normalize roots to eTLD+1 (registrable domain) so that *.tsinghua.edu.cn
+	// is in scope when input is "www.tsinghua.edu.cn".
+	rootsForScope := make(map[string]bool)
+	for _, d := range rootDomains {
+		base, err := publicsuffix.EffectiveTLDPlusOne(strings.TrimSpace(d))
+		if err == nil && base != "" {
+			rootsForScope[strings.ToLower(base)] = true
+		} else {
+			rootsForScope[strings.ToLower(strings.TrimSpace(d))] = true
+		}
+	}
+	var rootsList []string
+	for r := range rootsForScope {
+		rootsList = append(rootsList, r)
+	}
+	extractor := domain.NewExtractor(rootsList)
 	calculator := domain.NewCalculator(extractor)
 	scope := domain.NewScope(extractor)
 
@@ -130,11 +147,18 @@ func (c *Crawler) Start() error {
 		c.workers[i].Start(&c.wg)
 	}
 
-	for _, rootDomain := range c.rootDomains {
+	for _, d := range c.rootDomains {
+		d = strings.TrimSpace(d)
+		root, err := publicsuffix.EffectiveTLDPlusOne(d)
+		if err != nil || root == "" {
+			root = d
+		} else {
+			root = strings.ToLower(root)
+		}
 		c.jobQueue.Enqueue(queue.Task{
-			Domain: rootDomain,
+			Domain: d,
 			Depth:  0,
-			Root:   rootDomain,
+			Root:   root,
 		})
 	}
 
