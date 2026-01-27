@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/common"
@@ -73,9 +72,8 @@ func Deduplicater(in chan string) chan string {
 	out := make(chan string)
 	go func() {
 		defer close(out)
-		dedup := sync.Map{}
 		for s := range in {
-			if _, exists := dedup.LoadOrStore(s, true); !exists {
+			if !common.BloomFilter.TestAndAdd([]byte(s)) {
 				out <- s
 			}
 		}

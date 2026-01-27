@@ -14,7 +14,9 @@ type IOOptions struct {
 // Options is the options for the program
 type Options struct {
 	IOOptions
-	Timeout    int  `short:"t" long:"timeout" description:"Timeout of each HTTP request (in seconds)" default:"16"`
-	NumWorkers int  `short:"n" long:"num-workers" description:"Number of workers" default:"16"`
-	Version    bool `short:"v" long:"version" description:"Version"`
+	Timeout                  int     `short:"t" long:"timeout" description:"Timeout of each HTTP request (in seconds)" default:"16"`
+	NumWorkers               int     `short:"n" long:"num-workers" description:"Number of workers" default:"16"`
+	BloomFilterSize          uint    `short:"b" long:"bloom-filter-size" description:"Size of the bloom filter" default:"1048576"`
+	BloomFilterFalsePositive float64 `short:"f" long:"bloom-filter-fp" description:"False positive rate of the bloom filter" default:"0.01"`
+	Version                  bool    `short:"v" long:"version" description:"Version"`
 }

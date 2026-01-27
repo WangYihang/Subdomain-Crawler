@@ -4,6 +4,7 @@ go 1.24.12
 
 require (
 	github.com/WangYihang/gojob v0.0.11-0.20240910061806-66ed0ba94af3
+	github.com/bits-and-blooms/bloom/v3 v3.7.1
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/olekukonko/ts v0.0.0-20171002115256-78ecb04241c0
 	github.com/prometheus/client_golang v1.23.2
@@ -15,6 +16,7 @@ require (
 	github.com/WangYihang/uio v0.0.0-20240910061712-086a0337cd43 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/caarlos0/env v3.5.0+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect

@@ -28,6 +28,8 @@ func init() {
 		os.Exit(1)
 	}
 
+	common.InitGlobalBloomFilter(model.Opts.BloomFilterSize, model.Opts.BloomFilterFalsePositive)
+
 	if model.Opts.Version {
 		fmt.Println(common.PV.String())
 		os.Exit(0)
