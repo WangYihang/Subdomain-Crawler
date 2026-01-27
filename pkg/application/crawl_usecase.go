@@ -115,6 +115,9 @@ func (uc *CrawlUseCase) Execute(ctx context.Context) error {
 	// Start result flusher
 	go uc.flushResults(ctx)
 
+	// Start periodic filter saver
+	go uc.saveFilterPeriodically(ctx)
+
 	// Start workers
 	uc.startWorkers()
 
@@ -163,6 +166,23 @@ func (uc *CrawlUseCase) updateMetricsPeriodically(ctx context.Context) {
 			uc.metricsLock.Unlock()
 
 			uc.notifyMetricsObservers()
+		}
+	}
+}
+
+// saveFilterPeriodically periodically saves the bloom filter
+func (uc *CrawlUseCase) saveFilterPeriodically(ctx context.Context) {
+	ticker := time.NewTicker(16 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := uc.filter.Save(uc.config.BloomFilterFile); err != nil {
+				fmt.Printf("Warning: failed to auto-save bloom filter: %v\n", err)
+			}
 		}
 	}
 }
