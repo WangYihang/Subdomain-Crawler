@@ -17,7 +17,8 @@ builds:
       - -s -w -X github.com/WangYihang/Subdomain-Crawler/pkg/common.Version={{.Version}} -X github.com/WangYihang/Subdomain-Crawler/pkg/common.BuildTime={{.Date}} -X github.com/WangYihang/Subdomain-Crawler/pkg/common.CommitHash={{.Commit}} -X main.builtBy=goreleaser'
 
 archives:
-  - format: tar.gz
+  - formats: 
+      - tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
       {{ .ProjectName }}_
@@ -29,14 +30,15 @@ archives:
     # use zip for windows archives
     format_overrides:
     - goos: windows
-      format: zip
+      formats: 
+        - zip
     files:
       - README.md
       - input.txt
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
   filters:
