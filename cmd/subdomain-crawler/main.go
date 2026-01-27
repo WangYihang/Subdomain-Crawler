@@ -1,116 +1,63 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"math"
 	"os"
-	"strconv"
-	"strings"
 	"time"
-
-	"net/http"
-	_ "net/http/pprof"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/common"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/model"
-	"github.com/WangYihang/Subdomain-Crawler/pkg/util"
 	"github.com/jessevdk/go-flags"
-
-	"github.com/vbauerster/mpb/v8"
-	"github.com/vbauerster/mpb/v8/decor"
 )
 
-func init() {
+func main() {
+	// Parse command-line flags
 	_, err := flags.Parse(&model.Opts)
 	if err != nil {
 		os.Exit(1)
 	}
 
-	common.InitGlobalBloomFilter(model.Opts.BloomFilterSize, model.Opts.BloomFilterFalsePositive)
-
-	// Start periodic bloom filter save (once per minute)
-	common.BloomFilter.StartPeriodicSave(common.DefaultBloomFilterSessionFile, time.Minute)
-
+	// Show version if requested
 	if model.Opts.Version {
 		fmt.Println(common.PV.String())
 		os.Exit(0)
 	}
 
-	// Init progress bar
-	common.Progress = mpb.New(
-		mpb.WithWaitGroup(nil),
-		mpb.WithRefreshRate(time.Second),
-	)
-	common.Bar = common.Progress.AddBar(
-		int64(common.NumAllTasks),
-		mpb.BarOptional(mpb.BarRemoveOnComplete(), true),
-		mpb.PrependDecorators(
-			decor.Name("◆ Progress", decor.WCSyncWidth),
-		),
-		mpb.AppendDecorators(
-			decor.Counters(decor.DSyncWidth, " ▶ [%d / %d]", decor.WCSyncWidth),
-			decor.Percentage(decor.WCSyncSpace),
-			decor.OnComplete(
-				decor.EwmaETA(decor.ET_STYLE_GO, 30, decor.WCSyncSpace), "✓ completed",
-			),
-		),
-	)
-	common.Progress.UpdateBarPriority(common.Bar, math.MaxInt, false)
-
-	EnableObservability()
-}
-
-func EnableObservability() {
-	go util.PrometheusExporter()
-	go func() {
-		log.Println(http.ListenAndServe("localhost:36060", nil))
-	}()
-}
-
-func ParseLine(line string) (int, string, error) {
-	index := strings.Index(line, ",")
-	if index == -1 {
-		return -1, line, nil
-	}
-	rankString := line[:index]
-	domain := line[index+1:]
-	rank, err := strconv.Atoi(rankString)
+	// Load root domains from input file
+	rootDomains, err := common.LoadRootDomainsFromFile(model.Opts.InputFile)
 	if err != nil {
-		return -1, "", err
+		log.Fatalf("Failed to load root domains: %v", err)
 	}
-	return rank, domain, nil
-}
 
-func LoadTasks(filepath string) chan util.Task {
-	out := make(chan util.Task)
-	go func() {
-		defer close(out)
-		fd, err := os.Open(filepath)
-		if err != nil {
-			return
+	if len(rootDomains) == 0 {
+		log.Fatalf("No root domains loaded from %s", model.Opts.InputFile)
+	}
+
+	log.Printf("Loaded %d root domains from %s", len(rootDomains), model.Opts.InputFile)
+	if model.Opts.Verbose {
+		for _, domain := range rootDomains {
+			log.Printf("  - %s", domain)
 		}
-		defer fd.Close()
-		scanner := bufio.NewScanner(fd)
-		for scanner.Scan() {
-			domain := strings.TrimSpace(scanner.Text())
-			out <- util.NewTask("", domain)
-		}
-	}()
-	return out
-}
-
-func Count(channel chan util.Task) int64 {
-	count := int64(0)
-	for range channel {
-		count++
 	}
-	return count
-}
 
-func main() {
-	for task := range LoadTasks(model.Opts.Input) {
-		util.CrawlAllSubdomains(task)
+	// Create scheduler with configuration
+	scheduler := common.NewScheduler(
+		model.Opts.Concurrency,
+		model.Opts.MaxDepth,
+		model.Opts.Concurrency*10, // Job queue size
+		time.Duration(model.Opts.Timeout)*time.Second,
+		model.Opts.Output,
+	)
+
+	// Start the crawling process
+	log.Printf("Starting subdomain crawler with %d workers, max depth %d, timeout %ds",
+		model.Opts.Concurrency, model.Opts.MaxDepth, model.Opts.Timeout)
+
+	if err := scheduler.Start(rootDomains); err != nil {
+		log.Fatalf("Scheduler failed: %v", err)
 	}
+
+	log.Printf("Crawling completed. Processed: %d, Queued: %d",
+		scheduler.TotalProcessed, scheduler.TotalQueued)
 }

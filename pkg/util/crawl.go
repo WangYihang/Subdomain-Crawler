@@ -199,7 +199,7 @@ func CrawlAllSubdomains(task Task) {
 		wg.Wait()
 		close(tasks)
 	}()
-	for i := 0; i < model.Opts.NumWorkers; i++ {
+	for i := 0; i < model.Opts.Concurrency; i++ {
 		results = append(results, Worker(tasks, &numScheduled, numMaxSubdomains, scheduled, wg, domain))
 	}
 	// hash := Sha1Hash(domain)
