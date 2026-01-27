@@ -53,17 +53,29 @@ func main() {
 		p := tea.NewProgram(dashboard, tea.WithAltScreen())
 
 		// Run use case in background
+		errChan := make(chan error, 1)
 		go func() {
 			if err := useCase.Execute(ctx); err != nil && err != context.Canceled {
-				fmt.Fprintf(os.Stderr, "Crawling error: %v\n", err)
+				errChan <- err
 			}
-			p.Quit()
+			// Signal dashboard to quit when done
+			p.Send(tea.Quit())
 		}()
 
-		// Start TUI
+		// Start TUI (blocks until quit)
 		if _, err := p.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "TUI error: %v\n", err)
+			cancel() // Cancel the context to stop crawling
 			os.Exit(1)
+		}
+
+		// Check for crawling errors
+		select {
+		case err := <-errChan:
+			fmt.Fprintf(os.Stderr, "Crawling error: %v\n", err)
+			os.Exit(1)
+		default:
+			// No errors
 		}
 	} else {
 		// Non-dashboard mode: simple console output

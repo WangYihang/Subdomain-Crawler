@@ -41,13 +41,14 @@ func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "q", "Q", "ctrl+c":
 			return d, tea.Quit
 		}
 
 	case tea.WindowSizeMsg:
 		d.width = msg.Width
 		d.height = msg.Height
+		return d, nil
 
 	case tickMsg:
 		return d, tickCmd()
