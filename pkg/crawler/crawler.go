@@ -164,7 +164,7 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 	}, nil
 }
 
-// runProgress updates progressbar description with queue length.
+// runProgress updates progressbar description with queue length, request counts, and unique subdomains.
 func (c *Crawler) runProgress(done <-chan struct{}, bar *progressbar.ProgressBar, interval time.Duration) {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
@@ -174,7 +174,21 @@ func (c *Crawler) runProgress(done <-chan struct{}, bar *progressbar.ProgressBar
 			return
 		case <-tick.C:
 			n := c.jobQueue.Len()
-			bar.Describe("Queue: " + strconv.Itoa(n))
+			var httpCount, dnsCount, uniqueCount int64
+			for _, w := range c.workers {
+				if w == nil {
+					continue
+				}
+				processed, found := w.GetStats()
+				httpCount += processed // 1 HTTP fetch per task
+				dnsCount += processed  // 1 DNS resolve per task
+				uniqueCount += found
+			}
+			desc := "Queue: " + strconv.Itoa(n) +
+				" | HTTP: " + strconv.FormatInt(httpCount, 10) +
+				", DNS: " + strconv.FormatInt(dnsCount, 10) +
+				" | Unique: " + strconv.FormatInt(uniqueCount, 10)
+			bar.Describe(desc)
 		}
 	}
 }
