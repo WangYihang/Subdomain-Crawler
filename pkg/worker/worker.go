@@ -14,6 +14,11 @@ import (
 // Protocols to try
 var Protocols = []string{"http", "https"}
 
+// ActivityTracker reports current domain per worker for progress display.
+type ActivityTracker interface {
+	Set(workerID int, domain string)
+}
+
 // Worker processes tasks
 type Worker struct {
 	id              int
@@ -24,6 +29,7 @@ type Worker struct {
 	scope           *domain.Scope
 	calculator      *domain.Calculator
 	dedup           *dedup.Filter
+	activity        ActivityTracker
 	stopChan        <-chan struct{}
 	wg              *sync.WaitGroup
 	tasksProcessed  int64
@@ -40,6 +46,7 @@ type Config struct {
 	Scope      *domain.Scope
 	Calculator *domain.Calculator
 	Dedup      *dedup.Filter
+	Activity   ActivityTracker
 	StopChan   <-chan struct{}
 }
 
@@ -54,6 +61,7 @@ func NewWorker(config *Config) *Worker {
 		scope:      config.Scope,
 		calculator: config.Calculator,
 		dedup:      config.Dedup,
+		activity:   config.Activity,
 		stopChan:   config.StopChan,
 	}
 }
@@ -91,6 +99,10 @@ func (w *Worker) process() {
 func (w *Worker) processTask(task queue.Task) {
 	if w.calculator.GetDepth(task.Domain) > 2 {
 		return
+	}
+	if w.activity != nil {
+		w.activity.Set(w.id, task.Domain)
+		defer w.activity.Set(w.id, "")
 	}
 
 	result := w.fetcher.Fetch(task.Domain, task.Root, Protocols)

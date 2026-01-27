@@ -3,6 +3,7 @@ package crawler
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,37 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
+// progressTracker records current domain per worker for progress display.
+type progressTracker struct {
+	mu      sync.RWMutex
+	current map[int]string
+}
+
+func (p *progressTracker) Set(workerID int, domain string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.current == nil {
+		p.current = make(map[int]string)
+	}
+	if domain == "" {
+		delete(p.current, workerID)
+	} else {
+		p.current[workerID] = domain
+	}
+}
+
+func (p *progressTracker) snapshot() []string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	var out []string
+	for _, d := range p.current {
+		if d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 // Crawler coordinates crawling
 type Crawler struct {
 	cfg         *config.Config
@@ -30,6 +62,7 @@ type Crawler struct {
 	scope       *domain.Scope
 	dedupFilter *dedup.Filter
 	dnsResolver *dns.Resolver
+	progress    *progressTracker
 	jobQueue    *queue.JobQueue
 	resultQueue *queue.ResultQueue
 	httpclient  *httpclient.Client
@@ -97,6 +130,7 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 	fetcherInstance := fetcher.NewFetcher(fetcherConfig)
 
 	dnsResolver := dns.NewResolver(cfg.HTTP.Timeout)
+	progress := &progressTracker{current: make(map[int]string)}
 
 	jobQueue := queue.NewJobQueue(cfg.Concurrency.QueueSize)
 	resultQueue := queue.NewResultQueue(cfg.Concurrency.QueueSize)
@@ -116,6 +150,7 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 		scope:       scope,
 		dedupFilter: dedupFilter,
 		dnsResolver: dnsResolver,
+		progress:    progress,
 		jobQueue:    jobQueue,
 		resultQueue: resultQueue,
 		httpclient:  httpClient,
@@ -127,6 +162,46 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 	}, nil
 }
 
+// runProgress prints queue length and current fetching domains to stderr every interval.
+func (c *Crawler) runProgress(done <-chan struct{}, interval time.Duration) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	const barWidth = 16
+	for {
+		select {
+		case <-done:
+			return
+		case <-tick.C:
+			n := c.jobQueue.Len()
+			cap_ := c.jobQueue.Cap()
+			fetching := c.progress.snapshot()
+			// Bar: filled part by proportion, cap_ may be 0
+			filled := 0
+			if cap_ > 0 && n > 0 {
+				filled = (n * barWidth) / cap_
+				if filled > barWidth {
+					filled = barWidth
+				}
+			}
+			bar := make([]byte, barWidth+2)
+			bar[0] = '['
+			for i := 1; i <= barWidth; i++ {
+				if i <= filled {
+					bar[i] = '='
+				} else {
+					bar[i] = ' '
+				}
+			}
+			bar[barWidth+1] = ']'
+			fetchStr := ""
+			if len(fetching) > 0 {
+				fetchStr = " | Fetching: " + strings.Join(fetching, ", ")
+			}
+			fmt.Fprintf(os.Stderr, "\r[Queue: %d] %s%s    ", n, bar, fetchStr)
+		}
+	}
+}
+
 // Start starts crawling
 func (c *Crawler) Start() error {
 	log.Printf("Starting crawler with %d root domains", len(c.rootDomains))
@@ -135,6 +210,9 @@ func (c *Crawler) Start() error {
 	pm.StartPeriodicSave(c.cfg.Dedup.BloomFilterFile)
 
 	c.flusher.Start()
+
+	progressDone := make(chan struct{})
+	go c.runProgress(progressDone, 400*time.Millisecond)
 
 	c.workers = make([]*worker.Worker, c.cfg.Concurrency.NumWorkers)
 	for i := 0; i < c.cfg.Concurrency.NumWorkers; i++ {
@@ -147,6 +225,7 @@ func (c *Crawler) Start() error {
 			Scope:      c.scope,
 			Calculator: c.calculator,
 			Dedup:      c.dedupFilter,
+			Activity:   c.progress,
 			StopChan:   c.stopChan,
 		}
 		c.workers[i] = worker.NewWorker(workerConfig)
@@ -170,10 +249,14 @@ func (c *Crawler) Start() error {
 
 	go func() {
 		c.wg.Wait()
+		close(progressDone)
 		c.resultQueue.Close()
 	}()
 
 	c.flusher.Stop()
+
+	// Give progress one final clear line after workers exit
+	fmt.Fprintln(os.Stderr)
 
 	return c.Close()
 }

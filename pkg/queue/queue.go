@@ -46,6 +46,16 @@ func (q *JobQueue) Dequeue() (Task, bool) {
 	return task, ok
 }
 
+// Len returns current number of tasks in queue
+func (q *JobQueue) Len() int {
+	return len(q.ch)
+}
+
+// Cap returns queue capacity
+func (q *JobQueue) Cap() int {
+	return cap(q.ch)
+}
+
 // Close closes queue
 func (q *JobQueue) Close() {
 	close(q.ch)
