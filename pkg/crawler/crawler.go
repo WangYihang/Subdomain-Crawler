@@ -71,6 +71,8 @@ type Crawler struct {
 	fetcher     *fetcher.Fetcher
 	workers     []*worker.Worker
 	writer      *output.Writer
+	httpLog     *output.JsonlWriter
+	dnsLog      *output.JsonlWriter
 	flusher     *output.Flusher
 	stopChan    chan struct{}
 	wg          sync.WaitGroup
@@ -123,11 +125,22 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 		Timeout: cfg.HTTP.Timeout,
 	})
 
+	httpLog, err := output.NewJsonlWriter(cfg.Output.HttpLogFile)
+	if err != nil {
+		return nil, fmt.Errorf("open http log: %w", err)
+	}
+	dnsLog, err := output.NewJsonlWriter(cfg.Output.DnsLogFile)
+	if err != nil {
+		_ = httpLog.Close()
+		return nil, fmt.Errorf("open dns log: %w", err)
+	}
+
 	filter := extract.NewFilter("")
 	fetcherConfig := &fetcher.Config{
 		Client:          httpClient,
 		Filter:          filter,
 		MaxResponseSize: 10 * 1024 * 1024,
+		HttpLog:         httpLog,
 	}
 	fetcherInstance := fetcher.NewFetcher(fetcherConfig)
 
@@ -158,6 +171,8 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 		httpclient:  httpClient,
 		fetcher:     fetcherInstance,
 		writer:      writer,
+		httpLog:     httpLog,
+		dnsLog:      dnsLog,
 		flusher:     flusher,
 		stopChan:    make(chan struct{}),
 		stats:       &Stats{},
@@ -223,6 +238,7 @@ func (c *Crawler) Start() error {
 			Calculator: c.calculator,
 			Dedup:      c.dedupFilter,
 			Activity:   c.progress,
+			DnsLog:     c.dnsLog,
 			StopChan:   c.stopChan,
 		}
 		c.workers[i] = worker.NewWorker(workerConfig)
@@ -269,6 +285,12 @@ func (c *Crawler) Stop() {
 func (c *Crawler) Close() error {
 	if c.writer != nil {
 		_ = c.writer.Close()
+	}
+	if c.httpLog != nil {
+		_ = c.httpLog.Close()
+	}
+	if c.dnsLog != nil {
+		_ = c.dnsLog.Close()
 	}
 	if c.dedupFilter != nil {
 		_ = c.dedupFilter.SaveToFile(c.cfg.Dedup.BloomFilterFile)

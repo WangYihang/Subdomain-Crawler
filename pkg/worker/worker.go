@@ -1,13 +1,16 @@
 package worker
 
 import (
+	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/dedup"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/dns"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/fetcher"
+	"github.com/WangYihang/Subdomain-Crawler/pkg/output"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/queue"
 )
 
@@ -30,6 +33,7 @@ type Worker struct {
 	calculator      *domain.Calculator
 	dedup           *dedup.Filter
 	activity        ActivityTracker
+	dnsLog          *output.JsonlWriter
 	stopChan        <-chan struct{}
 	wg              *sync.WaitGroup
 	tasksProcessed  int64
@@ -47,6 +51,7 @@ type Config struct {
 	Calculator *domain.Calculator
 	Dedup      *dedup.Filter
 	Activity   ActivityTracker
+	DnsLog     *output.JsonlWriter
 	StopChan   <-chan struct{}
 }
 
@@ -62,6 +67,7 @@ func NewWorker(config *Config) *Worker {
 		calculator: config.Calculator,
 		dedup:      config.Dedup,
 		activity:   config.Activity,
+		dnsLog:     config.DnsLog,
 		stopChan:   config.StopChan,
 	}
 }
@@ -117,9 +123,41 @@ func (w *Worker) processTask(task queue.Task) {
 	result.Subdomains = uniqueSubdomains
 
 	var ips []string
+	var dnsErr string
 	if w.resolver != nil {
-		if resolved, err := w.resolver.Resolve(task.Domain); err == nil {
+		reqAt := time.Now()
+		resolved, err := w.resolver.Resolve(task.Domain)
+		rttMs := time.Since(reqAt).Milliseconds()
+		if err != nil {
+			dnsErr = err.Error()
+		} else {
 			ips = resolved
+		}
+		if w.dnsLog != nil {
+			answers := make([]map[string]string, 0, len(ips))
+			for _, ipStr := range ips {
+				typ := "AAAA"
+				if ip := net.ParseIP(ipStr); ip != nil && ip.To4() != nil {
+					typ = "A"
+				}
+				answers = append(answers, map[string]string{"ip": ipStr, "type": typ})
+			}
+			_ = w.dnsLog.Log(map[string]interface{}{
+				"request": map[string]interface{}{
+					"domain":     task.Domain,
+					"types":      []string{"A", "AAAA"},
+					"request_at": reqAt.UnixMilli(),
+					"timestamp":  reqAt.Format(time.RFC3339Nano),
+				},
+				"response": map[string]interface{}{
+					"answers":     answers,
+					"ips":         ips,
+					"error":       dnsErr,
+					"rtt_ms":      rttMs,
+					"response_at": time.Now().UnixMilli(),
+					"timestamp":   time.Now().Format(time.RFC3339Nano),
+				},
+			})
 		}
 	}
 

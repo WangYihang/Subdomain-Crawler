@@ -134,3 +134,38 @@ func (f *Flusher) Stop() {
 	close(f.done)
 	f.wg.Wait()
 }
+
+// JsonlWriter writes one JSON object per line (for http/dns logs).
+type JsonlWriter struct {
+	file *os.File
+	enc  *json.Encoder
+	mu   sync.Mutex
+}
+
+// NewJsonlWriter creates a writer for the given path.
+func NewJsonlWriter(path string) (*JsonlWriter, error) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return &JsonlWriter{file: f, enc: json.NewEncoder(f)}, nil
+}
+
+// Log encodes v as JSON and writes one line.
+func (w *JsonlWriter) Log(v interface{}) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.enc.Encode(v)
+}
+
+// Close closes the underlying file.
+func (w *JsonlWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.file != nil {
+		err := w.file.Close()
+		w.file = nil
+		return err
+	}
+	return nil
+}

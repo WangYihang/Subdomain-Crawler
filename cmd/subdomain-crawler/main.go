@@ -2,51 +2,43 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
+	"os"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/config"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/crawler"
 )
 
 func main() {
-	// Define command-line flags (both optional for Unix pipe style)
-	inputFile := flag.String("i", "", "Input file containing root domains (one per line, default: stdin)")
-	outputFile := flag.String("o", "", "Output file for results (default: stdout)")
-
+	inputFile := flag.String("i", "", "Input file (one domain per line, default: stdin)")
+	outputFile := flag.String("o", "", "Output file for results (default: result.jsonl)")
 	flag.Parse()
 
-	// Use stdin if no input file specified
 	if *inputFile == "" {
 		*inputFile = "-"
 	}
-
-	// Use stdout if no output file specified
 	if *outputFile == "" {
-		*outputFile = "-"
+		*outputFile = "result.jsonl"
 	}
 
-	// Create configuration with defaults
 	cfg := config.New(
 		*inputFile,
 		*outputFile,
-		16,      // HTTP timeout in seconds
-		32,      // Number of concurrent workers
-		1048576, // Bloom filter size
-		0.01,    // False positive rate
+		16, 32, 1048576, 0.01,
 	)
 
-	// Create crawler
 	c, err := crawler.NewCrawler(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create crawler: %v", err)
 	}
 
-	log.Printf("Starting subdomain crawler with %d workers", cfg.Concurrency.NumWorkers)
+	// Terminal only shows progress bar; suppress routine log lines
+	log.SetOutput(io.Discard)
+	defer func() { log.SetOutput(os.Stderr) }()
 
-	// Start crawling
 	if err := c.Start(); err != nil {
+		log.SetOutput(os.Stderr)
 		log.Fatalf("Crawler failed: %v", err)
 	}
-
-	log.Printf("Crawling completed")
 }

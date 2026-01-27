@@ -17,6 +17,8 @@ type InputConfig struct {
 
 type OutputConfig struct {
 	ResultsFile  string
+	HttpLogFile  string
+	DnsLogFile   string
 	FindingsFile string
 	StatusFile   string
 }
@@ -42,6 +44,8 @@ func New(inputFile, outputFile string, timeout, numWorkers int, bfSize uint, bfF
 		Input: InputConfig{File: inputFile},
 		Output: OutputConfig{
 			ResultsFile:  outputFile,
+			HttpLogFile:  "http.jsonl",
+			DnsLogFile:   "dns.jsonl",
 			FindingsFile: "findings.jsonl",
 			StatusFile:   "status.jsonl",
 		},
