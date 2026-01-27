@@ -45,7 +45,7 @@ func ParseFlags() (*Config, error) {
 	cfg := &Config{}
 
 	// Input/Output
-	flag.StringVar(&cfg.InputFile, "i", "-", "Input file containing root domains (one per line, default: stdin)")
+	flag.StringVar(&cfg.InputFile, "i", "input.txt", "Input file containing root domains (one per line)")
 	flag.StringVar(&cfg.OutputFile, "o", "result.jsonl", "Output file for crawl results")
 	flag.StringVar(&cfg.HTTPLogFile, "http-log", "http.jsonl", "HTTP request/response log file")
 	flag.StringVar(&cfg.DNSLogFile, "dns-log", "dns.jsonl", "DNS query/response log file")
@@ -145,7 +145,7 @@ USAGE:
     subdomain-crawler [OPTIONS]
 
 INPUT/OUTPUT OPTIONS:
-    -i, -input <file>          Input file with root domains (one per line, default: stdin)
+    -i, -input <file>          Input file with root domains (one per line, default: input.txt)
     -o, -output <file>         Output file for results (default: result.jsonl)
     -http-log <file>           HTTP request/response log (default: http.jsonl)
     -dns-log <file>            DNS query/response log (default: dns.jsonl)
@@ -176,10 +176,10 @@ OTHER OPTIONS:
     -h, -help                  Show this help message
 
 EXAMPLES:
-    # Basic usage with stdin
-    echo "example.com" | subdomain-crawler
+    # Basic usage (reads domains from input.txt)
+    subdomain-crawler
 
-    # Use input file and custom workers
+    # Use custom input file and workers
     subdomain-crawler -i domains.txt -workers 64
 
     # Save results to custom location
@@ -189,7 +189,7 @@ EXAMPLES:
     subdomain-crawler -i domains.txt -max-depth 5
 
     # Disable dashboard for logging/automation
-    subdomain-crawler -i domains.txt -dashboard=false
+    subdomain-crawler -dashboard=false
 
 For more information, visit: https://github.com/WangYihang/Subdomain-Crawler
 `)
