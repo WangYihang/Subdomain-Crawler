@@ -9,11 +9,21 @@ import (
 )
 
 func main() {
-	// Define command-line flags
-	inputFile := flag.String("i", "input.txt", "Input file containing root domains (one per line)")
-	outputFile := flag.String("o", "output.jsonl", "Output file for results")
+	// Define command-line flags (both optional for Unix pipe style)
+	inputFile := flag.String("i", "", "Input file containing root domains (one per line, default: stdin)")
+	outputFile := flag.String("o", "", "Output file for results (default: stdout)")
 
 	flag.Parse()
+
+	// Use stdin if no input file specified
+	if *inputFile == "" {
+		*inputFile = "-"
+	}
+
+	// Use stdout if no output file specified
+	if *outputFile == "" {
+		*outputFile = "-"
+	}
 
 	// Create configuration with defaults
 	cfg := config.New(

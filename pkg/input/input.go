@@ -22,13 +22,21 @@ func NewLoader() *Loader {
 	}
 }
 
-// Load loads domains from file
+// Load loads domains from file or stdin ("-" means stdin)
 func (l *Loader) Load(filePath string) ([]string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
+	var file *os.File
+	var err error
+
+	// Use stdin if filePath is "-"
+	if filePath == "-" {
+		file = os.Stdin
+	} else {
+		file, err = os.Open(filePath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
 	}
-	defer file.Close()
 
 	var domains []string
 	scanner := bufio.NewScanner(file)
