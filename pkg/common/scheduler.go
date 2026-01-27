@@ -12,8 +12,12 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Job represents a task to be processed by workers
@@ -49,8 +53,12 @@ type Scheduler struct {
 	mu sync.Mutex
 
 	// Statistics
-	TotalProcessed int64
-	TotalQueued    int64
+	TotalProcessed  int64
+	TotalQueued     int64
+	TotalDiscovered int64
+
+	// Progress tracking
+	ProgressBar progress.Model
 
 	// Graceful shutdown
 	stopChan chan struct{}
@@ -93,6 +101,7 @@ func NewScheduler(
 		JobQueue:        make(chan Job, jobQueueSize),
 		Results:         make(chan JobResult, jobQueueSize),
 		stopChan:        make(chan struct{}),
+		ProgressBar:     progress.New(progress.WithDefaultGradient()),
 	}
 }
 
@@ -206,6 +215,10 @@ func (s *Scheduler) Start(initialDomains []string) error {
 	s.wg.Add(1)
 	go s.findingsWriter()
 
+	// Start progress updater
+	s.wg.Add(1)
+	go s.progressUpdater()
+
 	// Handle graceful shutdown in a separate goroutine
 	go func() {
 		sig := <-sigChan
@@ -220,6 +233,9 @@ func (s *Scheduler) Start(initialDomains []string) error {
 	// Clean up
 	close(s.JobQueue)
 	close(s.Results)
+
+	// Print final statistics
+	s.printFinalStats()
 
 	// Save bloom filter
 	_ = s.BloomFilter.SaveToFile(s.BloomFilterFile)
@@ -665,6 +681,7 @@ func (s *Scheduler) findingsWriter() {
 		for _, subdomain := range result.Subdomains {
 			if _, exists := processed[subdomain]; !exists {
 				processed[subdomain] = true
+				atomic.AddInt64(&s.TotalDiscovered, 1)
 
 				// Query DNS
 				ips := s.queryDNS(subdomain)
@@ -719,4 +736,91 @@ func LoadRootDomainsFromFile(filepath string) ([]string, error) {
 	}
 
 	return domains, nil
+}
+
+// progressUpdater periodically updates and displays the progress bar
+func (s *Scheduler) progressUpdater() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	maxEstimate := int64(1000)
+
+	for {
+		select {
+		case <-ticker.C:
+			processed := atomic.LoadInt64(&s.TotalProcessed)
+			percentage := float64(processed) / float64(maxEstimate)
+			if percentage > 1.0 {
+				percentage = 0.99
+			}
+			s.ProgressBar.SetPercent(percentage)
+
+			// Render the progress bar
+			fmt.Printf("\r%s", s.ProgressBar.View())
+
+		case <-s.stopChan:
+			return
+		}
+	}
+}
+
+// printFinalStats prints final statistics using lipgloss
+func (s *Scheduler) printFinalStats() {
+	s.mu.Lock()
+	processed := s.TotalProcessed
+	queued := s.TotalQueued
+	s.mu.Unlock()
+	discovered := atomic.LoadInt64(&s.TotalDiscovered)
+
+	// Define styles
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("12")).
+		Bold(true).
+		Padding(1, 2)
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8"))
+
+	valueStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("11")).
+		Bold(true)
+
+	divider := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8")).
+		Render(strings.Repeat("─", 70))
+
+	// Build output
+	title := titleStyle.Render("✨ Crawling Complete")
+
+	stats := fmt.Sprintf(
+		"%s\n📊 Statistics:\n  %s Domains Processed       %s\n  %s Domains Queued         %s\n  %s Subdomains Discovered  %s\n",
+		divider,
+		keyStyle.Render("✓"),
+		valueStyle.Render(fmt.Sprintf("%d", processed)),
+		keyStyle.Render("✓"),
+		valueStyle.Render(fmt.Sprintf("%d", queued)),
+		keyStyle.Render("✓"),
+		valueStyle.Render(fmt.Sprintf("%d", discovered)),
+	)
+
+	files := fmt.Sprintf(
+		"\n📁 Output Files:\n  %s Detailed Log            %s\n  %s Findings Results       %s\n%s",
+		keyStyle.Render("✓"),
+		valueStyle.Render(s.OutputFile),
+		keyStyle.Render("✓"),
+		valueStyle.Render(s.FindingsFile),
+		divider,
+	)
+
+	success := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")).
+		Bold(true).
+		Render("✅ Crawl finished successfully!\n")
+
+	// Print everything
+	fmt.Println("\n" + title)
+	fmt.Println(stats + files)
+	fmt.Println(success)
 }
