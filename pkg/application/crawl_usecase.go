@@ -285,29 +285,24 @@ func (uc *CrawlUseCase) incrementHTTPRequests(success bool) {
 	if success {
 		atomic.AddInt64(&uc.metrics.SuccessCount, 1)
 	}
-	uc.notifyMetricsObservers()
 }
 
 // incrementDNSRequests increments the DNS request counter
 func (uc *CrawlUseCase) incrementDNSRequests() {
 	atomic.AddInt64(&uc.metrics.DNSRequests, 1)
-	uc.notifyMetricsObservers()
 }
 
 // incrementUniqueSubdomains increments the unique subdomains counter
 func (uc *CrawlUseCase) incrementUniqueSubdomains(count int64) {
 	atomic.AddInt64(&uc.metrics.UniqueSubdomains, count)
-	uc.notifyMetricsObservers()
 }
 
 // incrementTasksProcessed increments the tasks processed counter
 func (uc *CrawlUseCase) incrementTasksProcessed() {
 	atomic.AddInt64(&uc.metrics.TasksProcessed, 1)
-	uc.notifyMetricsObservers()
 }
 
 // incrementErrorCount increments the error counter
 func (uc *CrawlUseCase) incrementErrorCount() {
 	atomic.AddInt64(&uc.metrics.ErrorCount, 1)
-	uc.notifyMetricsObservers()
 }

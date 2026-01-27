@@ -51,8 +51,8 @@ func ParseFlags() (*Config, error) {
 	flag.StringVar(&cfg.DNSLogFile, "dns-log", "dns.jsonl", "DNS query/response log file")
 
 	// Crawling
-	flag.IntVar(&cfg.MaxDepth, "max-depth", 3, "Maximum subdomain depth to crawl")
-	flag.IntVar(&cfg.NumWorkers, "workers", 32, "Number of concurrent workers")
+	flag.IntVar(&cfg.MaxDepth, "max-depth", 4, "Maximum subdomain depth to crawl")
+	flag.IntVar(&cfg.NumWorkers, "workers", 4, "Number of concurrent workers")
 	flag.IntVar(&cfg.QueueSize, "queue-size", 10000, "Size of task queue")
 	flag.BoolVar(&cfg.ExpandSLD, "expand-sld", true, "Automatically expand SLD with common subdomains (www, api, mail, etc.)")
 

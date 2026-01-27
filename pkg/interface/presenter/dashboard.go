@@ -231,11 +231,9 @@ func (d *Dashboard) renderRecentDiscoveries() string {
 		Padding(1, 2).
 		Width(d.width - 4)
 
-	d.mu.RLock()
 	recentCount := len(d.recentSubdomains)
 	recentCopy := make([]string, recentCount)
 	copy(recentCopy, d.recentSubdomains)
-	d.mu.RUnlock()
 
 	lines := []string{
 		fmt.Sprintf("🔍 Recent Discoveries (Total: %d)", recentCount),
