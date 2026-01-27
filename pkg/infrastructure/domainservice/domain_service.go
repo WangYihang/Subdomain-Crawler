@@ -171,3 +171,25 @@ func (e *Extractor) FilterByRoot(domains []string, root string) []string {
 
 	return filtered
 }
+
+// ExtractTitle extracts the title from HTML content
+func (e *Extractor) ExtractTitle(html string) string {
+	// Regex to find title with support for attributes and newlines
+	re := regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+	matches := re.FindStringSubmatch(html)
+	if len(matches) > 1 {
+		title := strings.TrimSpace(matches[1])
+		// Replace newlines and tabs with spaces
+		title = strings.Map(func(r rune) rune {
+			if r == '\n' || r == '\r' || r == '\t' {
+				return ' '
+			}
+			return r
+		}, title)
+		// Collapse multiple spaces
+		spaceRe := regexp.MustCompile(`\s+`)
+		title = spaceRe.ReplaceAllString(title, " ")
+		return title
+	}
+	return ""
+}

@@ -28,6 +28,8 @@ type DomainExtractor interface {
 	ExtractFromHTML(html string) []string
 	// FilterByRoot filters domains by root domain
 	FilterByRoot(domains []string, root string) []string
+	// ExtractTitle extracts the title from HTML content
+	ExtractTitle(html string) string
 }
 
 // HTTPFetcher fetches web content

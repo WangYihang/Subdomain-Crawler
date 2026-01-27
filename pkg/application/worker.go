@@ -111,11 +111,15 @@ func (w *Worker) processTask(task *entity.Task) {
 			filtered := w.extractor.FilterByRoot(domains, task.Domain.Root)
 			subdomains = append(subdomains, filtered...)
 
+			// Extract title
+			title := w.extractor.ExtractTitle(resp.Body)
+
 			crawlResult = &entity.CrawlResult{
 				Domain:        task.Domain.Name,
 				Root:          task.Domain.Root,
 				Protocol:      protocol,
 				StatusCode:    resp.StatusCode,
+				Title:         title,
 				ContentLength: resp.ContentLength,
 				Subdomains:    filtered,
 			}
