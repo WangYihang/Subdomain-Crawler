@@ -154,14 +154,3 @@ type WildcardDetector interface {
     IsWildcard(domain string) bool
 }
 ```
-
-## 8. 交付物清单 (Deliverables)
-
-- **subcrawler** 二进制文件：编译后的可执行文件。
-- **config.yaml** (可选)：如果不想用命令行参数，支持配置文件。
-- **results.txt**：最终发现的子域名列表。
-- **session.bloom**：运行时的状态快照文件。
-
----
-
-**确认**：这份设计文档是否符合你的预期？如果确认无误，我们将以此为标准进入代码实现阶段。
