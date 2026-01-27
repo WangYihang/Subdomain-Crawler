@@ -11,7 +11,7 @@ import (
 // Config holds all application configuration
 type Config struct {
 	// Input/Output
-	InputFile   string `short:"i" long:"input" description:"Input file with root domains (one per line)" default:"input.txt"`
+	InputFile   string `short:"i" long:"input" description:"Input file with root domains (one per line)" default:"-"`
 	OutputFile  string `short:"o" long:"output" description:"Output file for results" default:"result.jsonl"`
 	HTTPLogFile string `long:"http-log" description:"HTTP request/response log file" default:"http.jsonl"`
 	DNSLogFile  string `long:"dns-log" description:"DNS query/response log file" default:"dns.jsonl"`
