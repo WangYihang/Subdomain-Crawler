@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/WangYihang/Subdomain-Crawler/pkg/output"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/queue"
 	"github.com/WangYihang/Subdomain-Crawler/pkg/worker"
+	"github.com/schollz/progressbar/v3"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -162,42 +164,17 @@ func NewCrawler(cfg *config.Config) (*Crawler, error) {
 	}, nil
 }
 
-// runProgress prints queue length and current fetching domains to stderr every interval.
-func (c *Crawler) runProgress(done <-chan struct{}, interval time.Duration) {
+// runProgress updates progressbar description with queue length.
+func (c *Crawler) runProgress(done <-chan struct{}, bar *progressbar.ProgressBar, interval time.Duration) {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
-	const barWidth = 16
 	for {
 		select {
 		case <-done:
 			return
 		case <-tick.C:
 			n := c.jobQueue.Len()
-			cap_ := c.jobQueue.Cap()
-			fetching := c.progress.snapshot()
-			// Bar: filled part by proportion, cap_ may be 0
-			filled := 0
-			if cap_ > 0 && n > 0 {
-				filled = (n * barWidth) / cap_
-				if filled > barWidth {
-					filled = barWidth
-				}
-			}
-			bar := make([]byte, barWidth+2)
-			bar[0] = '['
-			for i := 1; i <= barWidth; i++ {
-				if i <= filled {
-					bar[i] = '='
-				} else {
-					bar[i] = ' '
-				}
-			}
-			bar[barWidth+1] = ']'
-			fetchStr := ""
-			if len(fetching) > 0 {
-				fetchStr = " | Fetching: " + strings.Join(fetching, ", ")
-			}
-			fmt.Fprintf(os.Stderr, "\r[Queue: %d] %s%s    ", n, bar, fetchStr)
+			bar.Describe("Queue: " + strconv.Itoa(n))
 		}
 	}
 }
@@ -211,8 +188,14 @@ func (c *Crawler) Start() error {
 
 	c.flusher.Start()
 
+	// -1 = indeterminate spinner; output to stderr so stdout can be used for results
+	bar := progressbar.NewOptions64(-1,
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionSetDescription("Queue: 0"),
+		progressbar.OptionShowDescriptionAtLineEnd(),
+	)
 	progressDone := make(chan struct{})
-	go c.runProgress(progressDone, 400*time.Millisecond)
+	go c.runProgress(progressDone, bar, 400*time.Millisecond)
 
 	c.workers = make([]*worker.Worker, c.cfg.Concurrency.NumWorkers)
 	for i := 0; i < c.cfg.Concurrency.NumWorkers; i++ {
@@ -249,13 +232,14 @@ func (c *Crawler) Start() error {
 
 	go func() {
 		c.wg.Wait()
+		_ = bar.Finish()
 		close(progressDone)
 		c.resultQueue.Close()
 	}()
 
 	c.flusher.Stop()
 
-	// Give progress one final clear line after workers exit
+	// Newline after progress bar so log line isn't glued to the bar
 	fmt.Fprintln(os.Stderr)
 
 	return c.Close()
