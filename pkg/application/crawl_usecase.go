@@ -41,10 +41,11 @@ type CrawlUseCase struct {
 
 // Config holds the use case configuration
 type Config struct {
-	NumWorkers  int
-	MaxDepth    int
-	Protocols   []string
-	RootDomains []string
+	NumWorkers      int
+	MaxDepth        int
+	Protocols       []string
+	RootDomains     []string
+	BloomFilterFile string
 }
 
 // MetricsObserver observes metrics changes
@@ -257,6 +258,9 @@ func (uc *CrawlUseCase) Stop() {
 	uc.resultWriter.Flush()
 	uc.resultWriter.Close()
 	uc.logWriter.Close()
+	if err := uc.filter.Save(uc.config.BloomFilterFile); err != nil {
+		fmt.Printf("Failed to save bloom filter: %v\n", err)
+	}
 }
 
 // GetMetrics returns the current metrics

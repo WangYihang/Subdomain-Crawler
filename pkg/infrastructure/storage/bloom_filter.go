@@ -2,6 +2,7 @@ package storage
 
 import (
 	"os"
+	"sync"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/repository"
 	"github.com/bits-and-blooms/bloom/v3"
@@ -12,6 +13,7 @@ type BloomFilter struct {
 	filter *bloom.BloomFilter
 	size   uint
 	fpRate float64
+	mu     sync.RWMutex
 }
 
 // Config holds Bloom filter configuration
@@ -31,16 +33,23 @@ func NewBloomFilter(config Config) repository.DomainFilter {
 
 // Contains checks if a domain has been seen before
 func (bf *BloomFilter) Contains(domain string) bool {
+	bf.mu.RLock()
+	defer bf.mu.RUnlock()
 	return bf.filter.Test([]byte(domain))
 }
 
 // Add adds a domain to the filter
 func (bf *BloomFilter) Add(domain string) {
+	bf.mu.Lock()
+	defer bf.mu.Unlock()
 	bf.filter.Add([]byte(domain))
 }
 
 // Save persists the filter state
 func (bf *BloomFilter) Save(filename string) error {
+	bf.mu.RLock()
+	defer bf.mu.RUnlock()
+
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -53,6 +62,9 @@ func (bf *BloomFilter) Save(filename string) error {
 
 // Load restores the filter state
 func (bf *BloomFilter) Load(filename string) error {
+	bf.mu.Lock()
+	defer bf.mu.Unlock()
+
 	file, err := os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {

@@ -81,10 +81,11 @@ func (a *Assembler) AssembleUseCase() (*application.CrawlUseCase, error) {
 	// Create use case
 	useCase := application.NewCrawlUseCase(
 		application.Config{
-			NumWorkers:  a.config.NumWorkers,
-			MaxDepth:    a.config.MaxDepth,
-			Protocols:   a.config.Protocols,
-			RootDomains: rootDomains,
+			NumWorkers:      a.config.NumWorkers,
+			MaxDepth:        a.config.MaxDepth,
+			Protocols:       a.config.Protocols,
+			RootDomains:     rootDomains,
+			BloomFilterFile: a.config.BloomFilterFile,
 		},
 		validator,
 		calculator,
@@ -155,11 +156,4 @@ func (a *Assembler) expandSLDs(domains []string) []string {
 	}
 
 	return expanded
-}
-
-// SaveBloomFilter saves the bloom filter before exit
-func (a *Assembler) SaveBloomFilter(filter storage.BloomFilter) error {
-	// This would need access to the actual filter instance
-	// For now, we'll handle this in the cleanup phase
-	return nil
 }
