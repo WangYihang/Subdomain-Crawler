@@ -47,13 +47,13 @@ func init() {
 		int64(common.NumAllTasks),
 		mpb.BarOptional(mpb.BarRemoveOnComplete(), true),
 		mpb.PrependDecorators(
-			decor.Name("total", decor.WCSyncWidth),
+			decor.Name("◆ Progress", decor.WCSyncWidth),
 		),
 		mpb.AppendDecorators(
-			decor.CountersNoUnit("[%d / %d]", decor.WCSyncWidth),
+			decor.Counters(decor.DSyncWidth, " ▶ [%d / %d]", decor.WCSyncWidth),
 			decor.Percentage(decor.WCSyncSpace),
 			decor.OnComplete(
-				decor.EwmaETA(decor.ET_STYLE_GO, 30, decor.WCSyncSpace), "done",
+				decor.EwmaETA(decor.ET_STYLE_GO, 30, decor.WCSyncSpace), "✓ completed",
 			),
 		),
 	)
