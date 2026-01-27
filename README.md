@@ -17,12 +17,12 @@ subdomain-crawler --help
 ## Examples
 
 ```bash
-# Basic usage
+# Basic usage (defaults to stdin)
 echo "example.com" | subdomain-crawler
 
 # With custom settings
-subdomain-crawler -i domains.txt -workers 64 -max-depth 5 -o results.jsonl
+subdomain-crawler --input domains.txt --workers 64 --max-depth 5 --output results.jsonl
 
 # Automation mode (no dashboard)
-subdomain-crawler -i domains.txt -dashboard=false
+subdomain-crawler --input domains.txt --no-dashboard
 ```
