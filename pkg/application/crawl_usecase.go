@@ -35,7 +35,10 @@ type CrawlUseCase struct {
 	metricsLock      sync.RWMutex
 	workers          []*Worker
 	stopChan         chan struct{}
+	stopOnce         sync.Once
 	wg               sync.WaitGroup
+	taskWG           sync.WaitGroup
+	cleanupWG        sync.WaitGroup
 	metricsObservers []MetricsObserver
 }
 
@@ -110,13 +113,25 @@ func (uc *CrawlUseCase) Execute(ctx context.Context) error {
 	uc.metricsLock.Unlock()
 
 	// Start periodic metrics updates
-	go uc.updateMetricsPeriodically(ctx)
+	uc.cleanupWG.Add(1)
+	go func() {
+		defer uc.cleanupWG.Done()
+		uc.updateMetricsPeriodically(ctx)
+	}()
 
 	// Start result flusher
-	go uc.flushResults(ctx)
+	uc.cleanupWG.Add(1)
+	go func() {
+		defer uc.cleanupWG.Done()
+		uc.flushResults(ctx)
+	}()
 
 	// Start periodic filter saver
-	go uc.saveFilterPeriodically(ctx)
+	uc.cleanupWG.Add(1)
+	go func() {
+		defer uc.cleanupWG.Done()
+		uc.saveFilterPeriodically(ctx)
+	}()
 
 	// Start workers
 	uc.startWorkers()
@@ -132,6 +147,7 @@ func (uc *CrawlUseCase) Execute(ctx context.Context) error {
 		uc.Stop()
 		return ctx.Err()
 	case <-uc.waitForCompletion():
+		uc.Stop()
 		return nil
 	}
 }
@@ -144,6 +160,8 @@ func (uc *CrawlUseCase) updateMetricsPeriodically(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-uc.stopChan:
 			return
 		case <-ticker.C:
 			uc.metricsLock.Lock()
@@ -178,6 +196,8 @@ func (uc *CrawlUseCase) saveFilterPeriodically(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-uc.stopChan:
 			return
 		case <-ticker.C:
 			if err := uc.filter.Save(uc.config.BloomFilterFile); err != nil {
@@ -230,7 +250,9 @@ func (uc *CrawlUseCase) enqueueRootDomains() error {
 			Protocols: uc.config.Protocols,
 		}
 
-		if !uc.taskQueue.Enqueue(task) {
+		if uc.taskQueue.Enqueue(task) {
+			uc.taskWG.Add(1)
+		} else {
 			return fmt.Errorf("failed to enqueue domain: %s", domain)
 		}
 
@@ -263,8 +285,7 @@ func (uc *CrawlUseCase) flushResults(ctx context.Context) {
 func (uc *CrawlUseCase) waitForCompletion() <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
-		uc.wg.Wait()
-		uc.resultQueue.Close()
+		uc.taskWG.Wait()
 		close(done)
 	}()
 	return done
@@ -272,15 +293,19 @@ func (uc *CrawlUseCase) waitForCompletion() <-chan struct{} {
 
 // Stop stops the crawl use case
 func (uc *CrawlUseCase) Stop() {
-	close(uc.stopChan)
-	uc.taskQueue.Close()
-	uc.wg.Wait()
-	uc.resultWriter.Flush()
-	uc.resultWriter.Close()
-	uc.logWriter.Close()
-	if err := uc.filter.Save(uc.config.BloomFilterFile); err != nil {
-		fmt.Printf("Failed to save bloom filter: %v\n", err)
-	}
+	uc.stopOnce.Do(func() {
+		close(uc.stopChan)
+		uc.taskQueue.Close()
+		uc.wg.Wait()
+		uc.resultQueue.Close()
+		uc.cleanupWG.Wait()
+		uc.resultWriter.Flush()
+		uc.resultWriter.Close()
+		uc.logWriter.Close()
+		if err := uc.filter.Save(uc.config.BloomFilterFile); err != nil {
+			fmt.Printf("Failed to save bloom filter: %v\n", err)
+		}
+	})
 }
 
 // GetMetrics returns the current metrics

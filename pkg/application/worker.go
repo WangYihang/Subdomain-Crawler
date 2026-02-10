@@ -74,6 +74,7 @@ func (w *Worker) processTask(task *entity.Task) {
 		w.isActive.Store(false)
 		w.currentDomain.Store("")
 		w.useCase.incrementTasksProcessed()
+		w.useCase.taskWG.Done()
 	}()
 
 	// Check depth limit
@@ -214,6 +215,7 @@ func (w *Worker) enqueueSubdomains(parentTask *entity.Task, subdomains []string)
 		}
 
 		if w.taskQueue.Enqueue(newTask) {
+			w.useCase.taskWG.Add(1)
 			// Track enqueued tasks
 			atomic.AddInt64(&w.useCase.metrics.TasksEnqueued, 1)
 		}
