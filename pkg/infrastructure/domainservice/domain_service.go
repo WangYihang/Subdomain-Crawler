@@ -1,10 +1,12 @@
 package domainservice
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 
 	"github.com/WangYihang/Subdomain-Crawler/pkg/domain/service"
+	"golang.org/x/net/html"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -150,11 +152,46 @@ func (e *Extractor) ExtractFromText(text string) []string {
 	return unique
 }
 
-// ExtractFromHTML extracts domains from HTML content
-func (e *Extractor) ExtractFromHTML(html string) []string {
-	// For now, treat HTML as text
-	// In a more sophisticated version, we'd parse HTML and extract from specific tags
-	return e.ExtractFromText(html)
+// ExtractFromHTML extracts domains from HTML content by parsing elements
+func (e *Extractor) ExtractFromHTML(htmlContent string) []string {
+	tokenizer := html.NewTokenizer(strings.NewReader(htmlContent))
+	var domains []string
+	seen := make(map[string]bool)
+
+	addDomain := func(d string) {
+		d = strings.ToLower(strings.TrimSpace(d))
+		if d != "" && !seen[d] {
+			if e.domainRegex.MatchString(d) {
+				seen[d] = true
+				domains = append(domains, d)
+			}
+		}
+	}
+
+	for {
+		tt := tokenizer.Next()
+		switch tt {
+		case html.ErrorToken:
+			return domains
+		case html.TextToken:
+			text := string(tokenizer.Text())
+			extracted := e.ExtractFromText(text)
+			for _, d := range extracted {
+				addDomain(d)
+			}
+		case html.StartTagToken, html.SelfClosingTagToken:
+			token := tokenizer.Token()
+			for _, attr := range token.Attr {
+				// Check common attributes that contain URLs
+				if attr.Key == "href" || attr.Key == "src" {
+					u, err := url.Parse(attr.Val)
+					if err == nil && u.Host != "" {
+						addDomain(u.Host)
+					}
+				}
+			}
+		}
+	}
 }
 
 // FilterByRoot filters domains by root domain

@@ -305,3 +305,54 @@ func TestExtractor_ExtractTitle(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractor_ExtractFromHTML(t *testing.T) {
+	extractor := NewExtractor()
+
+	tests := []struct {
+		name     string
+		html     string
+		expected []string
+	}{
+		{
+			"simple link",
+			`<a href="http://www.example.com">Link</a>`,
+			[]string{"www.example.com"},
+		},
+		{
+			"link and text",
+			`<a href="http://link.example.com">Link</a> and text.example.com`,
+			[]string{"link.example.com", "text.example.com"},
+		},
+		{
+			"misleading path",
+			`<a href="/path/2f2f.example.com">Link</a>`,
+			[]string{},
+		},
+		{
+			"valid protocol relative",
+			`<a href="//valid.example.com">Link</a>`,
+			[]string{"valid.example.com"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractor.ExtractFromHTML(tt.html)
+			resultMap := make(map[string]bool)
+			for _, r := range result {
+				resultMap[r] = true
+			}
+
+			for _, e := range tt.expected {
+				if !resultMap[e] {
+					t.Errorf("ExtractFromHTML() missing expected %s", e)
+				}
+			}
+
+			if len(tt.expected) == 0 && len(result) > 0 {
+				t.Errorf("ExtractFromHTML() extracted unexpected domains: %v", result)
+			}
+		})
+	}
+}
