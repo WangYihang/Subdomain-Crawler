@@ -73,22 +73,45 @@ func (d *Dashboard) View() string {
 	var sections []string
 
 	// Header
-	sections = append(sections, d.renderHeader())
-
-	// Stats section (general metrics)
-	sections = append(sections, d.renderGeneralStats())
-
-	// HTTP metrics
-	sections = append(sections, d.renderHTTPStats())
-
-	// DNS metrics
-	sections = append(sections, d.renderDNSStats())
-
-	// Recent discoveries section
-	sections = append(sections, d.renderRecentDiscoveries())
+	header := d.renderHeader()
+	sections = append(sections, header)
+	headerHeight := lipgloss.Height(header)
 
 	// Footer
-	sections = append(sections, d.renderFooter())
+	footer := d.renderFooter()
+	footerHeight := lipgloss.Height(footer)
+
+	// Calculate dimensions for grid
+	availableHeight := d.height - headerHeight - footerHeight
+	if availableHeight < 0 {
+		availableHeight = 0
+	}
+	halfHeight := availableHeight / 2
+
+	halfWidth := d.width / 2
+	leftWidth := halfWidth
+	rightWidth := d.width - leftWidth
+
+	// Row 1: General Stats (Left) | HTTP Stats (Right)
+	row1 := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		d.renderGeneralStats(leftWidth, halfHeight),
+		d.renderHTTPStats(rightWidth, halfHeight),
+	)
+	sections = append(sections, row1)
+
+	// Row 2: DNS Stats (Left) | Recent Discoveries (Right)
+	// Adjust height for the second row to fill any remaining space due to integer division
+	remainingHeight := availableHeight - halfHeight
+	row2 := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		d.renderDNSStats(leftWidth, remainingHeight),
+		d.renderRecentDiscoveries(rightWidth, remainingHeight),
+	)
+	sections = append(sections, row2)
+
+	// Footer
+	sections = append(sections, footer)
 
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
@@ -132,12 +155,13 @@ func (d *Dashboard) renderHeader() string {
 	return title + timeInfo
 }
 
-func (d *Dashboard) renderGeneralStats() string {
+func (d *Dashboard) renderGeneralStats(width, height int) string {
 	statStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#874BFD")).
 		Padding(1, 2).
-		Width(d.width - 4)
+		Width(width - 2).  // Adjust for border
+		Height(height - 2) // Adjust for border
 
 	stats := []string{
 		"📊 General Statistics",
@@ -163,12 +187,13 @@ func (d *Dashboard) renderGeneralStats() string {
 	return statStyle.Render(strings.Join(stats, "\n"))
 }
 
-func (d *Dashboard) renderHTTPStats() string {
+func (d *Dashboard) renderHTTPStats(width, height int) string {
 	statStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#FF6B6B")).
 		Padding(1, 2).
-		Width(d.width - 4)
+		Width(width - 2).  // Adjust for border
+		Height(height - 2) // Adjust for border
 
 	stats := []string{
 		"🌐 HTTP Statistics",
@@ -198,12 +223,13 @@ func (d *Dashboard) renderHTTPStats() string {
 	return statStyle.Render(strings.Join(stats, "\n"))
 }
 
-func (d *Dashboard) renderDNSStats() string {
+func (d *Dashboard) renderDNSStats(width, height int) string {
 	statStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#4ECDC4")).
 		Padding(1, 2).
-		Width(d.width - 4)
+		Width(width - 2).  // Adjust for border
+		Height(height - 2) // Adjust for border
 
 	stats := []string{
 		"🔍 DNS Statistics",
@@ -224,12 +250,13 @@ func (d *Dashboard) renderDNSStats() string {
 	return statStyle.Render(strings.Join(stats, "\n"))
 }
 
-func (d *Dashboard) renderRecentDiscoveries() string {
+func (d *Dashboard) renderRecentDiscoveries(width, height int) string {
 	discoveryStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#04B575")).
 		Padding(1, 2).
-		Width(d.width - 4)
+		Width(width - 2).  // Adjust for border
+		Height(height - 2) // Adjust for border
 
 	recentCount := len(d.recentSubdomains)
 	recentCopy := make([]string, recentCount)
@@ -243,8 +270,14 @@ func (d *Dashboard) renderRecentDiscoveries() string {
 	if recentCount == 0 {
 		lines = append(lines, "No subdomains discovered yet...")
 	} else {
-		// Show latest 10 subdomains
-		maxShow := 10
+		// Calculate how many lines we can show based on height
+		// Height - 2 (border) - 2 (padding) - 2 (title + empty line)
+		maxLines := height - 6
+		if maxLines < 0 {
+			maxLines = 0
+		}
+
+		maxShow := maxLines
 		start := 0
 		if recentCount > maxShow {
 			start = recentCount - maxShow
@@ -254,10 +287,8 @@ func (d *Dashboard) renderRecentDiscoveries() string {
 			lines = append(lines, fmt.Sprintf("  • %s", recentCopy[i]))
 		}
 
-		if recentCount > maxShow {
-			lines = append(lines, "")
-			lines = append(lines, fmt.Sprintf("... and %d more earlier discoveries", recentCount-maxShow))
-		}
+		// If we truncated, we might want to show that, but simple logic is fine for now
+		// Or we can just show the last N that fit
 	}
 
 	return discoveryStyle.Render(strings.Join(lines, "\n"))
